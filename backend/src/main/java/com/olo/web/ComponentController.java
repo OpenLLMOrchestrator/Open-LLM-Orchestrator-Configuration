@@ -7,10 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * UI components: Start, End, Group (from components folder) and Plugins (from plugins folder).
- * Each has a JSON schema for property panel rendering.
+ * UI components: flow/control from components/, capabilities from components/capability/, plugins from components/plugins/.
  */
 @RestController
 @RequestMapping("/api/components")
@@ -30,5 +30,22 @@ public class ComponentController {
         return componentService.getSchema(componentId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Create a new capability template in components/capability/{id}.json.
+     * Body: { "id": "MY_CAP", "name": "My Cap", "description": "Optional" }
+     */
+    @PostMapping("/capability")
+    public ResponseEntity<ComponentService.ComponentSummary> createCapability(@RequestBody Map<String, String> body) {
+        String id = body != null ? body.get("id") : null;
+        String name = body != null ? body.get("name") : null;
+        String description = body != null ? body.get("description") : null;
+        try {
+            ComponentService.ComponentSummary created = componentService.createCapability(id, name, description);
+            return ResponseEntity.ok(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

@@ -1,0 +1,29 @@
+{
+  "id": "reducer",
+  "name": "Reducer",
+  "description": "Merge or reduce outputs from multiple branches (e.g. after async or fork/join)",
+  "icon": "compress",
+  "type": "control",
+  "category": "flow",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "mergePolicy": {
+        "type": "string",
+        "title": "Merge policy",
+        "enum": ["LAST_WINS", "FIRST_WINS", "PREFIX_BY_ACTIVITY", "ALL_MODELS_RESPONSE_FORMAT"],
+        "default": "LAST_WINS"
+      },
+      "customPolicyName": {
+        "type": "string",
+        "title": "Custom policy (optional)",
+        "description": "Name from mergePolicies config if not using built-in"
+      },
+      "label": {
+        "type": "string",
+        "title": "Label",
+        "default": "Reducer"
+      }
+    }
+  }
+}

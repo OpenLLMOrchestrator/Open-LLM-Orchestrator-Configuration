@@ -1,4 +1,4 @@
-import type { CanvasNode, CanvasEdge } from '../types';
+import type { CanvasNode, CanvasEdge, CanvasState } from '../types';
 
 const NODE_W = 140;
 const NODE_H = 44;
@@ -46,19 +46,27 @@ function pluginLabel(name?: string): string {
 /**
  * Tree: Start → Capability → … → End (main flow).
  * Each Capability → Group. Group → content: single Plugin, or Fork (sync/swim lanes) → lanes → Join (reducer), or Condition (if/else/elseif), or Iterator (loop).
+ * If pipelineId is given, uses that pipeline's root; otherwise uses the first pipeline.
  */
-export function engineConfigToCanvasState(config: EngineConfig): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
+export function engineConfigToCanvasState(
+  config: EngineConfig,
+  pipelineId?: string
+): { nodes: CanvasNode[]; edges: CanvasEdge[] } {
   const nodes: CanvasNode[] = [];
   const edges: CanvasEdge[] = [];
 
   const pipelines = config.pipelines;
   if (!pipelines || typeof pipelines !== 'object') return { nodes, edges };
 
-  const pipeline = Object.values(pipelines)[0] as { root?: Record<string, StageConfig> } | undefined;
+  const pipeline =
+    pipelineId != null && pipelines[pipelineId]
+      ? (pipelines[pipelineId] as { root?: Record<string, StageConfig> })
+      : (Object.values(pipelines)[0] as { root?: Record<string, StageConfig> } | undefined);
   if (!pipeline?.root || typeof pipeline.root !== 'object') return { nodes, edges };
 
   const root = pipeline.root;
-  const order: string[] = config.capabilityOrder ?? config.stageOrder ?? Object.keys(root);
+  // Use pipeline root key order so UI matches the order as stored in the config (e.g. RETRIEVAL → MODEL → POST_PROCESS).
+  const order: string[] = Object.keys(root);
 
   let baseX = 30;
 
@@ -113,18 +121,23 @@ export function engineConfigToCanvasState(config: EngineConfig): { nodes: Canvas
     const capCenterX = 30 + (NODE_W + GAP_X) * (capIndex + 1) + NODE_W / 2;
     capIndex++;
 
-    const groupId = `grp-${capName}`;
-    nodes.push({
-      id: groupId,
-      pluginId: 'group',
-      position: { x: capCenterX - NODE_W / 2, y: groupRowY },
-      data: { label: 'Group', executionMode: stage.executionMode ?? 'SYNC', _capability: capName },
-    });
-    edges.push({ id: `e-${capId}-${groupId}`, source: capId, target: groupId });
-
-    const contentY = groupRowY + GROUP_TO_CONTENT_DY;
+    const executionMode = stage.executionMode ?? 'SYNC';
     const children = Array.isArray(stage.children) ? stage.children : [];
     const hasCondition = stage.condition != null;
+    const isAsyncMultiChild = executionMode === 'ASYNC' && children.length > 1;
+
+    const groupId = `grp-${capName}`;
+    if (!isAsyncMultiChild) {
+      nodes.push({
+        id: groupId,
+        pluginId: 'group',
+        position: { x: capCenterX - NODE_W / 2, y: groupRowY },
+        data: { label: 'Group', executionMode, _capability: capName },
+      });
+      edges.push({ id: `e-${capId}-${groupId}`, source: capId, target: groupId });
+    }
+
+    const contentY = groupRowY + GROUP_TO_CONTENT_DY;
 
     if (hasCondition) {
       const condId = `cond-${capName}`;
@@ -166,25 +179,31 @@ export function engineConfigToCanvasState(config: EngineConfig): { nodes: Canvas
       });
       edges.push({ id: `e-${groupId}-${nodeId}`, source: groupId, target: nodeId });
     } else {
-      // Multiple children: Group → Fork (sync swim lanes) → lanes → Join (reducer)
+      // Multiple children: [Cap or Group] → Fork → lanes (plugins in parallel) → Join (Reducer)
+      // When ASYNC, cap connects directly to ASYNC FORK (no intermediate group).
       const forkId = `fork-${capName}`;
       const joinId = `join-${capName}`;
       const joinY = contentY + SWIM_LANE_DY + children.length * SWIM_LANE_DY * 2;
+      const forkLabel = executionMode === 'ASYNC' ? 'ASYNC FORK' : 'Sync (Fork)';
       nodes.push({
         id: forkId,
         pluginId: 'fork',
         position: { x: capCenterX - NODE_W / 2, y: contentY },
-        data: { label: 'Sync (Fork)' },
+        data: { label: forkLabel, executionMode, _capability: capName },
       });
       nodes.push({
         id: joinId,
-        pluginId: 'join',
+        pluginId: 'reducer',
         position: { x: capCenterX - NODE_W / 2, y: joinY },
-        data: { label: 'Reducer (Join)' },
+        data: { label: 'Join (Reducer)', _capability: capName },
       });
-      edges.push({ id: `e-${groupId}-${forkId}`, source: groupId, target: forkId });
+      if (isAsyncMultiChild) {
+        edges.push({ id: `e-${capId}-${forkId}`, source: capId, target: forkId });
+      } else {
+        edges.push({ id: `e-${groupId}-${forkId}`, source: groupId, target: forkId });
+      }
 
-      const isSync = (stage.executionMode ?? 'SYNC') === 'SYNC';
+      const isSync = executionMode === 'SYNC';
       children.forEach((child, i) => {
         const laneY = contentY + SWIM_LANE_DY + i * SWIM_LANE_DY;
         const laneId = `lane-${capName}-${i}`;
@@ -211,6 +230,21 @@ export function engineConfigToCanvasState(config: EngineConfig): { nodes: Canvas
   }
 
   return { nodes, edges };
+}
+
+/**
+ * Merge positions from existing canvas into computed canvas so stored layout is preserved.
+ * For each node in computed, if existing has a node with the same id, use existing position.
+ */
+export function mergeCanvasPositions(computed: CanvasState, existing: CanvasState): CanvasState {
+  if (!existing.nodes.length) return computed;
+  const byId = new Map(existing.nodes.map((n) => [n.id, n]));
+  const nodes = computed.nodes.map((n) => {
+    const existingNode = byId.get(n.id);
+    if (existingNode?.position) return { ...n, position: existingNode.position };
+    return n;
+  });
+  return { nodes, edges: computed.edges };
 }
 
 export function isEngineConfig(config: unknown): config is EngineConfig {

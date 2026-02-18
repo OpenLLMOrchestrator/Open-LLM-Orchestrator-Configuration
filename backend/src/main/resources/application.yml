@@ -33,8 +33,11 @@ olo:
   redis:
     enabled: true
     config-key-prefix: "olo:config:"
+    # Keys for "Load saved configuration" (e.g. olo:engine:config:default:1.0)
+    engine-config-key-prefix: "olo:engine:config:"
   # Folder paths relative to working dir (e.g. backend/). Use env OLO_TEMPLATES_DIR etc. to override.
+  # Flow from components/flows/*.json, control from components/control/*.json, capabilities from components/capability/*.json, plugins from components/plugins/
   templates-dir: ../template
   components-dir: ../components
-  plugins-dir: ../plugins
+  plugins-dir: ../components/plugins
   plugin-schemas-path: classpath:plugin-schemas/

@@ -70,18 +70,29 @@ input, select, textarea {
   --xy-connectionline-stroke: var(--accent);
   --xy-connectionline-stroke-width: 3;
 }
+/* Edges container: ensure connection lines are visible and not clipped */
+.react-flow .react-flow__edges svg {
+  overflow: visible !important;
+}
 .react-flow__edge-path {
   stroke: var(--accent) !important;
-  stroke-width: 3 !important;
+  stroke-width: 4px !important;
   stroke-linecap: round;
   stroke-linejoin: round;
-  fill: none;
+  fill: none !important;
   transition: stroke 0.2s;
+  vector-effect: non-scaling-stroke;
 }
 .react-flow__edge.selected .react-flow__edge-path,
-.react-flow__edge:hover .react-flow__edge-path {
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__edge.selectable:focus .react-flow__edge-path {
   stroke: var(--accent-hover) !important;
-  stroke-width: 4 !important;
+  stroke-width: 5px !important;
+}
+.react-flow__edge-interaction {
+  stroke: transparent !important;
+  fill: none !important;
+  pointer-events: stroke;
 }
 .react-flow__edge-text {
   fill: var(--text);
@@ -106,6 +117,28 @@ input, select, textarea {
 }
 .react-flow__marker marker {
   overflow: visible;
+}
+
+/* Canvas right-click context menu */
+.canvas-context-menu,
+.canvas-context-submenu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.canvas-context-menu button,
+.canvas-context-submenu button {
+  font-family: inherit;
+  font-size: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+.canvas-context-submenu {
+  position: fixed;
+  min-width: 160px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1001;
 }
 
 .form-group label {

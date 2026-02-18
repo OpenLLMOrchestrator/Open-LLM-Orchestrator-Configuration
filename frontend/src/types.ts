@@ -9,6 +9,15 @@ export interface OloConfig {
   updatedAt?: string;
 }
 
+/** In-progress template state persisted in Redis (olo:ui:inprogress-template). */
+export interface InProgressTemplate {
+  templateId?: string | null;
+  configName?: string | null;
+  canvasJson?: string | null;
+  configJson?: string | null;
+  selectedPipelineId?: string | null;
+}
+
 export interface Template {
   id: string;
   name: string;

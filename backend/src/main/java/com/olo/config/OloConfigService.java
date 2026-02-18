@@ -37,8 +37,14 @@ public class OloConfigService {
         return toDto(entity);
     }
 
+    /**
+     * List saved configurations from Redis keys olo:engine:config:* (e.g. default:1.0, temp:1.0).
+     * Used for "Load saved configuration" dropdown.
+     */
     public List<OloConfigDto> listAll() {
-        return configRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+        return redisConfigService.listEngineConfigNames().stream()
+                .map(name -> OloConfigDto.builder().name(name).build())
+                .collect(Collectors.toList());
     }
 
     public OloConfigDto getByName(String name) {
@@ -46,8 +52,18 @@ public class OloConfigService {
     }
 
     public OloConfigDto getByNameWithRedisFallback(String name) {
+        // 1) Prefer engine config from olo:engine:config:{name}
+        var fromEngine = redisConfigService.getEngineConfig(name)
+                .map(configJson -> OloConfigDto.builder()
+                        .name(name)
+                        .configJson(configJson)
+                        .canvasJson(null)
+                        .build());
+        if (fromEngine.isPresent()) return fromEngine.get();
+        // 2) Then DB
         OloConfigDto fromDb = getByName(name);
         if (fromDb != null) return fromDb;
+        // 3) Then UI config from olo:config:{name}
         return redisConfigService.getByName(name)
                 .map(p -> OloConfigDto.builder()
                         .name(name)
