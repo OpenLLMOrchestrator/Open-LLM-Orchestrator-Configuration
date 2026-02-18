@@ -1,0 +1,160 @@
+:root {
+  --bg-dark: #0f0f12;
+  --bg-panel: #16161b;
+  --bg-elevated: #1c1c24;
+  --border: #2a2a35;
+  --text: #e8e8ed;
+  --text-muted: #8888a0;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --node-bg: #1e1e28;
+  --node-border: #3f3f50;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Outfit', system-ui, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__node {
+  border-radius: 10px;
+  border: 1px solid var(--node-border);
+  background: var(--node-bg);
+  padding: 10px 14px;
+  min-width: 140px;
+}
+
+.react-flow__node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+}
+
+/* Pipeline flow: visible connecting lines (tree: internal nodes → plugin leaves) */
+.react-flow {
+  --xy-edge-stroke: var(--accent);
+  --xy-edge-stroke-width: 3;
+  --xy-edge-stroke-selected: var(--accent-hover);
+  --xy-connectionline-stroke: var(--accent);
+  --xy-connectionline-stroke-width: 3;
+}
+.react-flow__edge-path {
+  stroke: var(--accent) !important;
+  stroke-width: 3 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  transition: stroke 0.2s;
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent-hover) !important;
+  stroke-width: 4 !important;
+}
+.react-flow__edge-text {
+  fill: var(--text);
+  font-size: 0.75rem;
+}
+.react-flow__connection-path {
+  stroke: var(--accent) !important;
+  stroke-width: 3 !important;
+}
+
+/* Edge arrowheads: ensure marker is visible (marker-end url must not contain '#' in id) */
+.react-flow__arrowhead polyline {
+  stroke: var(--accent);
+  fill: none;
+}
+.react-flow__arrowhead polyline.arrowclosed {
+  stroke: var(--accent);
+  fill: var(--accent);
+}
+.react-flow__marker svg {
+  overflow: visible;
+}
+.react-flow__marker marker {
+  overflow: visible;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-actions button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 500;
+}
+
+.form-actions button.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.form-actions button.primary:hover {
+  background: var(--accent-hover);
+}
+
+.form-actions button.secondary {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.form-actions button.secondary:hover {
+  background: var(--border);
+}

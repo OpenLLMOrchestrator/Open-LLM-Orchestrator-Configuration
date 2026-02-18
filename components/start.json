@@ -1,0 +1,18 @@
+{
+  "id": "start",
+  "name": "Start",
+  "description": "Pipeline entry point",
+  "icon": "play_arrow",
+  "type": "control",
+  "category": "flow",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "label": {
+        "type": "string",
+        "title": "Label",
+        "default": "Start"
+      }
+    }
+  }
+}

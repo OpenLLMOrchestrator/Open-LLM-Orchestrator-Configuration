@@ -1,0 +1,25 @@
+{
+  "id": "prompt-template",
+  "name": "Prompt Template",
+  "description": "Build a prompt from a template and variables",
+  "icon": "code",
+  "category": "prompt",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "template": {
+        "type": "string",
+        "title": "Template",
+        "description": "Prompt template with {{placeholders}}",
+        "default": "{{query}}"
+      },
+      "variables": {
+        "type": "array",
+        "title": "Variables",
+        "items": { "type": "string" },
+        "description": "List of variable names"
+      }
+    },
+    "required": ["template"]
+  }
+}

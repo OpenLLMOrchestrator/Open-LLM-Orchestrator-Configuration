@@ -1,0 +1,36 @@
+{
+  "configVersion": "1.0",
+  "worker": {
+    "queueName": "core-task-queue",
+    "strictBoot": false
+  },
+  "pipelines": {
+    "default": {
+      "defaultTimeoutSeconds": 30,
+      "defaultAsyncCompletionPolicy": "ALL",
+      "root": {
+        "ACCESS": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "AccessControlPlugin", "name": "com.example.plugin.AccessControlPluginImpl", "timeoutSeconds": 10 }
+          ]
+        },
+        "MEMORY": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "MemoryPlugin", "name": "com.example.plugin.MemoryPluginImpl" }
+          ]
+        },
+        "MODEL": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "ModelPlugin", "name": "com.example.plugin.ModelPluginImpl", "timeoutSeconds": 120 }
+          ]
+        }
+      }
+    }
+  }
+}

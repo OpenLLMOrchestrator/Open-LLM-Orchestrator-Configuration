@@ -1,0 +1,29 @@
+{
+  "id": "router",
+  "name": "Router",
+  "description": "Route requests to different branches by condition",
+  "icon": "account_tree",
+  "category": "control",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "strategy": {
+        "type": "string",
+        "title": "Strategy",
+        "enum": ["first_match", "all", "weighted"],
+        "default": "first_match"
+      },
+      "rules": {
+        "type": "array",
+        "title": "Rules",
+        "items": {
+          "type": "object",
+          "properties": {
+            "condition": { "type": "string" },
+            "target": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

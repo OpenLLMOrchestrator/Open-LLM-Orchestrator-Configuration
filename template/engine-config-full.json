@@ -1,0 +1,67 @@
+{
+  "configVersion": "1.0",
+  "worker": {
+    "queueName": "core-task-queue",
+    "strictBoot": false
+  },
+  "temporal": {
+    "target": "localhost:7233",
+    "namespace": "default"
+  },
+  "activity": {
+    "defaultTimeouts": {
+      "scheduleToStartSeconds": 60,
+      "startToCloseSeconds": 30,
+      "scheduleToCloseSeconds": 300
+    },
+    "retryPolicy": {
+      "maximumAttempts": 3,
+      "initialIntervalSeconds": 1,
+      "backoffCoefficient": 2,
+      "maximumIntervalSeconds": 60,
+      "nonRetryableErrors": []
+    }
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": ""
+  },
+  "database": {
+    "url": "jdbc:postgresql://localhost:5432/olo_config",
+    "username": "postgres",
+    "password": "postgres"
+  },
+  "capabilityOrder": ["ACCESS", "MEMORY", "RETRIEVAL", "RETRIEVE", "MODEL", "EVALUATE", "FEEDBACK_CAPTURE", "DATASET_BUILD", "TRAIN_TRIGGER", "MODEL_REGISTRY", "MCP", "TOOL", "FILTER", "POST_PROCESS", "EVALUATION", "FEEDBACK", "LEARNING", "OBSERVABILITY", "CUSTOM"],
+  "pipelines": {
+    "default": {
+      "defaultTimeoutSeconds": 30,
+      "defaultAsyncCompletionPolicy": "ALL",
+      "root": {
+        "ACCESS": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "AccessControlPlugin", "name": "com.example.plugin.AccessControlPluginImpl", "timeoutSeconds": 10 }
+          ]
+        },
+        "MEMORY": {
+          "type": "GROUP",
+          "executionMode": "ASYNC",
+          "asyncCompletionPolicy": "ALL",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "MemoryPlugin", "name": "com.example.plugin.MemoryPluginImpl" },
+            { "type": "PLUGIN", "pluginType": "VectorStorePlugin", "name": "com.example.plugin.VectorStorePluginImpl" }
+          ]
+        },
+        "MODEL": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "ModelPlugin", "name": "com.example.plugin.ModelPluginImpl", "timeoutSeconds": 120 }
+          ]
+        }
+      }
+    }
+  }
+}

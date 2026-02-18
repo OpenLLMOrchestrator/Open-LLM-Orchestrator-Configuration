@@ -1,0 +1,18 @@
+{
+  "id": "fork",
+  "name": "Fork",
+  "description": "Start of parallel branches; wire multiple out-edges to run in parallel, then join",
+  "icon": "fork_right",
+  "type": "control",
+  "category": "flow",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "label": {
+        "type": "string",
+        "title": "Label",
+        "default": "Fork"
+      }
+    }
+  }
+}

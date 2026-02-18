@@ -1,0 +1,812 @@
+{
+    "configVersion": "1.0",
+    "enabledFeatures": [
+        "VERSIONED_STATE",
+        "STAGE_RESULT_ENVELOPE",
+        "EXECUTION_GRAPH",
+        "PLANNER_PLAN_EXECUTOR",
+        "INTERCEPTORS",
+        "EXECUTION_SNAPSHOT"
+    ],
+    "worker": {
+        "queueName": "core-task-queue",
+        "strictBoot": false
+    },
+    "temporal": {
+        "target": "localhost:7233",
+        "namespace": "default"
+    },
+    "activity": {
+        "payload": {
+            "maxAccumulatedOutputKeys": 0,
+            "maxResultOutputKeys": 0
+        },
+        "defaultTimeouts": {
+            "scheduleToStartSeconds": 6000,
+            "startToCloseSeconds": 3000,
+            "scheduleToCloseSeconds": 30000
+        },
+        "retryPolicy": {
+            "maximumAttempts": 3,
+            "initialIntervalSeconds": 1,
+            "backoffCoefficient": 2,
+            "maximumIntervalSeconds": 60,
+            "nonRetryableErrors": [
+            ]
+        }
+    },
+    "capabilityOrder": [
+        "ACCESS",
+        "PRE_CONTEXT_SETUP",
+        "PLANNER",
+        "PLAN_EXECUTOR",
+        "EXECUTION_CONTROLLER",
+        "ITERATIVE_BLOCK",
+        "MODEL",
+        "RETRIEVAL",
+        "RETRIEVE",
+        "TOOL",
+        "MCP",
+        "MEMORY",
+        "REFLECTION",
+        "SUB_OBSERVABILITY",
+        "SUB_CUSTOM",
+        "ITERATIVE_BLOCK_END",
+        "FILTER",
+        "POST_PROCESS",
+        "EVALUATION",
+        "EVALUATE",
+        "FEEDBACK",
+        "FEEDBACK_CAPTURE",
+        "LEARNING",
+        "DATASET_BUILD",
+        "TRAIN_TRIGGER",
+        "MODEL_REGISTRY",
+        "OBSERVABILITY",
+        "CUSTOM"
+    ],
+    "mergePolicies": {
+        "DEFAULT_ASYNC": "LAST_WINS",
+        "PREFIX_KEYS": "PREFIX_BY_ACTIVITY"
+    },
+    "plugins": [
+        "com.openllmorchestrator.worker.plugin.tokenizer.DocumentTokenizerPlugin",
+        "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin",
+        "com.openllmorchestrator.worker.plugin.folder.FolderIngestionPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Llama32ChatPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.MistralChatPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Llama32FixedChatPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Phi3ChatPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Gemma2_2bChatPlugin",
+        "com.openllmorchestrator.worker.plugin.llm.Qwen2_1_5bChatPlugin",
+        "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin",
+        "com.openllmorchestrator.worker.plugin.access.AllowAllAccessControlPlugin",
+        "com.openllmorchestrator.worker.plugin.tool.EchoToolPlugin",
+        "com.openllmorchestrator.worker.plugin.memory.ContextMemoryPlugin",
+        "com.openllmorchestrator.worker.plugin.guardrail.SimpleGuardrailPlugin",
+        "com.openllmorchestrator.worker.plugin.prompt.SimplePromptBuilderPlugin",
+        "com.openllmorchestrator.worker.plugin.caching.InMemoryCachingPlugin",
+        "com.openllmorchestrator.worker.plugin.observability.PassThroughObservabilityPlugin",
+        "LAST_WINS",
+        "FIRST_WINS",
+        "PREFIX_BY_ACTIVITY",
+        "ALL_MODELS_RESPONSE_FORMAT",
+        "com.openllmorchestrator.worker.sample.SampleEchoPlugin",
+        "com.openllmorchestrator.worker.sample.StubFilterPlugin",
+        "com.openllmorchestrator.worker.sample.StubRetrievalPlugin",
+        "com.openllmorchestrator.worker.sample.StubModelPlugin",
+        "com.openllmorchestrator.worker.sample.StubRefinementPlugin",
+        "com.openllmorchestrator.worker.sample.StubEvaluationPlugin",
+        "com.openllmorchestrator.worker.sample.StubFeedbackPlugin",
+        "com.openllmorchestrator.worker.sample.StubLearningPlugin",
+        "com.openllmorchestrator.worker.sample.StubDatasetBuildPlugin",
+        "com.openllmorchestrator.worker.sample.StubTrainTriggerPlugin",
+        "com.openllmorchestrator.worker.sample.StubModelRegistryPlugin",
+        "com.openllmorchestrator.worker.sample.StubConditionPlugin"
+    ],
+    "pipelines": {
+        "document-ingestion": {
+            "defaultTimeoutSeconds": 6000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "FILTER": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "FilterPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.tokenizer.DocumentTokenizerPlugin"
+                        }
+                    ]
+                },
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "document-ingestion-folder": {
+            "defaultTimeoutSeconds": 12000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "FILTER": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "FilterPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.folder.FolderIngestionPlugin"
+                        }
+                    ]
+                },
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "question-answer": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "llama-oss": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "openai-oss": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "both": {
+            "defaultTimeoutSeconds": 12000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "ASYNC",
+                    "asyncCompletionPolicy": "ALL",
+                    "asyncOutputMergePolicy": "ALL_MODELS_RESPONSE_FORMAT",
+                    "timeoutSeconds": 180,
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-llama-oss": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-openai-oss": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-both": {
+            "defaultTimeoutSeconds": 120,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-mistral": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-llama3.2": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-phi3": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-gemma2-2b": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "rag-qwen2-1.5b": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "RETRIEVAL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "VectorStorePlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+                        }
+                    ]
+                },
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ModelPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "chat-mistral": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.MistralChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "chat-llama3.2": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32FixedChatPlugin",
+                            "timeoutSeconds": 12000 
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "chat-phi3": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Phi3ChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "chat-gemma2-2b": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Gemma2_2bChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "chat-qwen2-1.5b": {
+            "defaultTimeoutSeconds": 9000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Qwen2_1_5bChatPlugin",
+                            "timeoutSeconds": 12000
+                        }
+                    ]
+                },
+                "POST_PROCESS": {
+                    "type": "GROUP",
+                    "executionMode": "SYNC",
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "RefinementPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.output.AnswerFormatPlugin"
+                        }
+                    ]
+                }
+            }
+        },
+        "query-all-models": {
+            "defaultTimeoutSeconds": 36000,
+            "defaultAsyncCompletionPolicy": "ALL",
+            "root": {
+                "MODEL": {
+                    "type": "GROUP",
+                    "executionMode": "ASYNC",
+                    "asyncCompletionPolicy": "ALL",
+                    "asyncOutputMergePolicy": "ALL_MODELS_RESPONSE_FORMAT",
+                    "timeoutSeconds": 36000,
+                    "children": [
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32ChatPlugin",
+                            "timeoutSeconds": 36000
+                        },
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.MistralChatPlugin",
+                            "timeoutSeconds": 36000
+                        },
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Llama32FixedChatPlugin",
+                            "timeoutSeconds": 36000
+                        },
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Phi3ChatPlugin",
+                            "timeoutSeconds": 36000         
+                        },
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Gemma2_2bChatPlugin",
+                            "timeoutSeconds": 36000
+                        },
+                        {
+                            "type": "PLUGIN",
+                            "pluginType": "ModelPlugin",
+                            "name": "com.openllmorchestrator.worker.plugin.llm.Qwen2_1_5bChatPlugin",
+                            "timeoutSeconds": 360
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

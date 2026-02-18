@@ -1,0 +1,34 @@
+{
+  "configVersion": "1.0",
+  "worker": {
+    "queueName": "core-task-queue",
+    "strictBoot": false
+  },
+  "capabilityOrder": ["FILTER", "RETRIEVAL"],
+  "plugins": [
+    "com.openllmorchestrator.worker.plugin.tokenizer.DocumentTokenizerPlugin",
+    "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin"
+  ],
+  "pipelines": {
+    "document-ingestion": {
+      "defaultTimeoutSeconds": 60,
+      "defaultAsyncCompletionPolicy": "ALL",
+      "root": {
+        "FILTER": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "FilterPlugin", "name": "com.openllmorchestrator.worker.plugin.tokenizer.DocumentTokenizerPlugin" }
+          ]
+        },
+        "RETRIEVAL": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "VectorStorePlugin", "name": "com.openllmorchestrator.worker.plugin.vectordb.VectorStoreRetrievalPlugin" }
+          ]
+        }
+      }
+    }
+  }
+}

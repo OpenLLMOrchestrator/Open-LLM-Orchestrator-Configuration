@@ -1,0 +1,31 @@
+{
+  "id": "retriever",
+  "name": "Retriever",
+  "description": "Retrieve documents or chunks from a vector store",
+  "icon": "search",
+  "category": "rag",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "index": {
+        "type": "string",
+        "title": "Index Name",
+        "description": "Vector index or collection name"
+      },
+      "topK": {
+        "type": "integer",
+        "title": "Top K",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 5
+      },
+      "minScore": {
+        "type": "number",
+        "title": "Min Score",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.7
+      }
+    }
+  }
+}

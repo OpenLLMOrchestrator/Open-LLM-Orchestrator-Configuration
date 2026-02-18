@@ -1,0 +1,33 @@
+{
+  "id": "llm-inference",
+  "name": "LLM Inference",
+  "description": "Call an LLM for completion or chat",
+  "icon": "psychology",
+  "category": "inference",
+  "properties": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "title": "Model",
+        "description": "Model identifier",
+        "default": "gpt-4"
+      },
+      "temperature": {
+        "type": "number",
+        "title": "Temperature",
+        "minimum": 0,
+        "maximum": 2,
+        "default": 0.7
+      },
+      "maxTokens": {
+        "type": "integer",
+        "title": "Max Tokens",
+        "minimum": 1,
+        "maximum": 128000,
+        "default": 2048
+      }
+    },
+    "required": ["model"]
+  }
+}

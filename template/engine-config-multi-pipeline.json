@@ -1,0 +1,87 @@
+{
+  "configVersion": "1.0",
+  "worker": {
+    "queueName": "core-task-queue",
+    "strictBoot": false
+  },
+  "capabilityOrder": ["ACCESS", "MEMORY", "RETRIEVAL", "RETRIEVE", "MODEL", "EVALUATE", "FEEDBACK_CAPTURE", "DATASET_BUILD", "TRAIN_TRIGGER", "MODEL_REGISTRY", "MCP", "TOOL", "FILTER", "POST_PROCESS", "EVALUATION", "FEEDBACK", "LEARNING", "OBSERVABILITY", "CUSTOM"],
+  "mergePolicies": {
+    "PREFIX_KEYS": "PREFIX_BY_ACTIVITY"
+  },
+  "pipelines": {
+    "chat": {
+      "defaultTimeoutSeconds": 30,
+      "defaultAsyncCompletionPolicy": "ALL",
+      "mergePolicy": { "type": "MERGE_POLICY", "pluginType": "MergePolicy", "name": "LAST_WINS" },
+      "root": {
+        "ACCESS": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "AccessControlPlugin", "name": "com.example.plugin.AccessControlPluginImpl", "timeoutSeconds": 10 }
+          ]
+        },
+        "MEMORY": {
+          "type": "GROUP",
+          "executionMode": "ASYNC",
+          "asyncCompletionPolicy": "ALL",
+          "mergePolicy": { "type": "MERGE_POLICY", "pluginType": "MergePolicy", "name": "com.example.plugin.RankedMerge" },
+          "children": [
+            { "type": "PLUGIN", "pluginType": "MemoryPlugin", "name": "com.example.plugin.MemoryPluginImpl" }
+          ]
+        },
+        "MODEL": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "ModelPlugin", "name": "com.example.plugin.ModelPluginImpl", "timeoutSeconds": 120 }
+          ]
+        }
+      }
+    },
+    "document-extraction": {
+      "defaultTimeoutSeconds": 60,
+      "defaultAsyncCompletionPolicy": "ALL",
+      "mergePolicy": { "type": "MERGE_POLICY", "pluginType": "MergePolicy", "name": "LAST_WINS" },
+      "root": {
+        "ACCESS": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "AccessControlPlugin", "name": "com.example.plugin.AccessControlPluginImpl" },
+            { "type": "PLUGIN", "pluginType": "TenantPolicyPlugin", "name": "com.example.plugin.TenantPolicyPluginImpl", "timeoutSeconds": 45 },
+            { "type": "PLUGIN", "pluginType": "RateLimitPlugin", "name": "com.example.plugin.RateLimitPluginImpl" }
+          ]
+        },
+        "MEMORY": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "MemoryPlugin", "name": "com.example.plugin.MemoryPluginImpl" },
+            { "type": "PLUGIN", "pluginType": "VectorStorePlugin", "name": "com.example.plugin.VectorStorePluginImpl", "timeoutSeconds": 45 }
+          ]
+        },
+        "RETRIEVAL": {
+          "type": "GROUP",
+          "executionMode": "ASYNC",
+          "asyncCompletionPolicy": "ALL",
+          "mergePolicy": { "type": "MERGE_POLICY", "pluginType": "MergePolicy", "name": "PREFIX_BY_ACTIVITY" },
+          "children": [
+            { "type": "PLUGIN", "pluginType": "MCPPlugin", "name": "com.example.plugin.MCPPluginImpl1" },
+            { "type": "PLUGIN", "pluginType": "MCPPlugin", "name": "com.example.plugin.MCPPluginImpl2", "timeoutSeconds": 45 },
+            { "type": "PLUGIN", "pluginType": "MCPPlugin", "name": "com.example.plugin.MCPPluginImpl3" },
+            { "type": "PLUGIN", "pluginType": "MCPPlugin", "name": "com.example.plugin.MCPPluginImpl4", "timeoutSeconds": 90 }
+          ]
+        },
+        "MODEL": {
+          "type": "GROUP",
+          "executionMode": "SYNC",
+          "children": [
+            { "type": "PLUGIN", "pluginType": "ModelPlugin", "name": "com.example.plugin.ModelPluginImpl" },
+            { "type": "PLUGIN", "pluginType": "MCPPlugin", "name": "com.example.plugin.MCPPluginImpl", "timeoutSeconds": 90 }
+          ]
+        }
+      }
+    }
+  }
+}

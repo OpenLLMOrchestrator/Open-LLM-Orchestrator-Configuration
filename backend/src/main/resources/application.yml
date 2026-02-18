@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: olo-config-backend
+  datasource:
+    url: jdbc:h2:file:./data/olo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+server:
+  port: 8082
+
+olo:
+  redis:
+    enabled: true
+    config-key-prefix: "olo:config:"
+  # Folder paths relative to working dir (e.g. backend/). Use env OLO_TEMPLATES_DIR etc. to override.
+  templates-dir: ../template
+  components-dir: ../components
+  plugins-dir: ../plugins
+  plugin-schemas-path: classpath:plugin-schemas/
