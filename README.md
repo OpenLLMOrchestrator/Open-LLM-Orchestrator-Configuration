@@ -87,14 +87,21 @@ docker compose up -d --build
 
 The Compose stack includes Redis and PostgreSQL. The backend is built from source (engine-config + backend). Templates and components are mounted from `./template` and `./components`; override paths with `OLO_TEMPLATES_DIR`, `OLO_COMPONENTS_DIR`, `OLO_PLUGINS_DIR` in `.env`.
 
-### Published containers (GitHub Actions)
+### Published containers (Docker Hub)
 
-On **push to `main`**, **push of tag `v*`**, or **release published**, the [publish-containers](.github/workflows/publish-containers.yml) workflow builds and pushes images to **GitHub Container Registry** (ghcr.io):
+On **push to `main`**, **push of tag `v*`**, or **release published**, the [publish-containers](.github/workflows/publish-containers.yml) workflow builds and pushes images to **Docker Hub**.
 
-- `ghcr.io/<owner>/<repo>-backend:latest`, `:<sha>`, and (on tag/release) `:<version>`
-- `ghcr.io/<owner>/<repo>-frontend:latest`, `:<sha>`, and (on tag/release) `:<version>`
+**Required repo secrets** (Settings → Secrets and variables → Actions):
 
-Pull and run with Redis + Postgres, or use your own compose and set the backend/frontend images to these.
+- `DOCKERHUB_USERNAME` – your Docker Hub username (or org)
+- `DOCKERHUB_TOKEN` – Docker Hub access token (Account → Security → New Access Token)
+
+**Published images:**
+
+- `<DOCKERHUB_USERNAME>/olo-config-backend`: `latest`, `<sha>`, and (on tag/release) `<version>`
+- `<DOCKERHUB_USERNAME>/olo-config-frontend`: `latest`, `<sha>`, and (on tag/release) `<version>`
+
+Pull: `docker pull <your-username>/olo-config-backend:latest`. Use in your own compose or with Redis + Postgres.
 
 ## API (overview)
 
