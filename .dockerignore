@@ -1,17 +1,16 @@
-# Used when building backend (context = repo root)
+# Used when building combined image (context = repo root)
 .git
 .gitignore
 *.md
 .env
 .env.*
 !/.env.example
-node_modules
-frontend
-frontend/*
 template/*.md
 **/target
-**/dist
 **/.cursor
 **/.idea
 **/*.iml
-**/node_modules
+# Keep frontend/ for combined build; backend node_modules not used; dist is built in-container
+backend/node_modules
+frontend/dist
+**/dist

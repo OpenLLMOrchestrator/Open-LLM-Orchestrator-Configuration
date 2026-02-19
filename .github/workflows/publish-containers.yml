@@ -1,8 +1,8 @@
-# Build and publish backend + frontend containers to Docker Hub
+# Build and publish single container (frontend + backend) to Docker Hub
 # Set repo secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (Docker Hub → Account → Security → Access Tokens)
 # Triggers: push to main, or version tag (v*)
 
-name: Publish containers
+name: Publish container
 
 on:
   push:
@@ -16,11 +16,6 @@ on:
     types: [published]
   workflow_dispatch:
 
-env:
-  # Docker Hub image prefix: <DOCKERHUB_USERNAME>/olo-config
-  IMAGE_NAME_BACKEND: olo-config-backend
-  IMAGE_NAME_FRONTEND: olo-config-frontend
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -31,13 +26,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set image prefix (Docker Hub)
+      - name: Set image name (Docker Hub)
         run: |
           if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
             echo "::error::DOCKERHUB_USERNAME repo secret is required to publish to Docker Hub"
             exit 1
           fi
-          echo "IMAGE_PREFIX=${{ secrets.DOCKERHUB_USERNAME }}/olo-config" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/olo-config" >> $GITHUB_ENV
 
       - name: Set tags
         id: tags
@@ -55,21 +50,16 @@ jobs:
       - name: Prepare image tags
         id: img-tags
         run: |
-          PREFIX="${{ env.IMAGE_PREFIX }}"
+          IMG="${{ env.IMAGE_NAME }}"
           SHA="${{ steps.tags.outputs.sha }}"
           VER="${{ steps.tags.outputs.version }}"
           NL=$'\n'
-          BACKEND_TAGS="${PREFIX}-backend:latest${NL}${PREFIX}-backend:${SHA}"
-          FRONTEND_TAGS="${PREFIX}-frontend:latest${NL}${PREFIX}-frontend:${SHA}"
+          TAGS="${IMG}:latest${NL}${IMG}:${SHA}"
           if [ -n "$VER" ]; then
-            BACKEND_TAGS="${BACKEND_TAGS}${NL}${PREFIX}-backend:${VER}"
-            FRONTEND_TAGS="${FRONTEND_TAGS}${NL}${PREFIX}-frontend:${VER}"
+            TAGS="${TAGS}${NL}${IMG}:${VER}"
           fi
-          echo "backend<<EOF" >> $GITHUB_OUTPUT
-          echo "$BACKEND_TAGS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "frontend<<EOF" >> $GITHUB_OUTPUT
-          echo "$FRONTEND_TAGS" >> $GITHUB_OUTPUT
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
@@ -78,23 +68,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend
+      - name: Build and push (frontend + backend)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: backend/Dockerfile
+          file: Dockerfile
           push: true
-          tags: ${{ steps.img-tags.outputs.backend }}
-          cache-from: type=gha
-          cache-to: type=gha
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: frontend/Dockerfile
-          push: true
-          tags: ${{ steps.img-tags.outputs.frontend }}
+          tags: ${{ steps.img-tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha
 
@@ -102,7 +82,6 @@ jobs:
         run: |
           echo "## Published to Docker Hub" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_PREFIX }}-backend\`: \`latest\`, \`${{ steps.tags.outputs.sha }}\`${{ steps.tags.outputs.version && format('`, `{0}`', steps.tags.outputs.version) }}" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_PREFIX }}-frontend\`: \`latest\`, \`${{ steps.tags.outputs.sha }}\`${{ steps.tags.outputs.version && format('`, `{0}`', steps.tags.outputs.version) }}" >> $GITHUB_STEP_SUMMARY
+          echo "**\`${{ env.IMAGE_NAME }}\`**: \`latest\`, \`${{ steps.tags.outputs.sha }}\`${{ steps.tags.outputs.version && format('`, `{0}`', steps.tags.outputs.version) }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Pull: \`docker pull ${{ env.IMAGE_PREFIX }}-backend:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "One image serves UI and API on port 8082. Pull: \`docker pull ${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY

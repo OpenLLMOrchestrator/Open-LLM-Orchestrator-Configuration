@@ -73,35 +73,31 @@ npm run dev
 
 ### 4. All-in-one with Docker Compose
 
-All settings are configurable via environment variables. Copy `.env.example` to `.env` and adjust if needed.
+One **app** image serves both the UI and the API (frontend built into the backend JAR). Copy `.env.example` to `.env` and adjust if needed.
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-- Frontend: **http://localhost:5173** (or `FRONTEND_PORT`)
-- Backend: **http://localhost:8082** (or `SERVER_PORT`)
+- **App (UI + API):** **http://localhost:8082** (or `SERVER_PORT`) — open in browser for the config UI; `/api` for the API
 - Redis: port `6379` (or `REDIS_PORT`)
 - PostgreSQL: port `5432` (or `POSTGRES_PORT`); set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` in `.env`
 
-The Compose stack includes Redis and PostgreSQL. The backend is built from source (engine-config + backend). Templates and components are mounted from `./template` and `./components`; override paths with `OLO_TEMPLATES_DIR`, `OLO_COMPONENTS_DIR`, `OLO_PLUGINS_DIR` in `.env`.
+The Compose stack runs one `app` container (built from root `Dockerfile`), plus Redis and PostgreSQL. Templates and components are mounted from `./template` and `./components`.
 
-### Published containers (Docker Hub)
+### Published container (Docker Hub)
 
-On **push to `main`**, **push of tag `v*`**, or **release published**, the [publish-containers](.github/workflows/publish-containers.yml) workflow builds and pushes images to **Docker Hub**.
+On **push to `main`**, **push of tag `v*`**, or **release published**, the [publish-containers](.github/workflows/publish-containers.yml) workflow builds and pushes a **single image** (frontend + backend) to **Docker Hub**.
 
 **Required repo secrets** (Settings → Secrets and variables → Actions):
 
 - `DOCKERHUB_USERNAME` – your Docker Hub username (or org)
 - `DOCKERHUB_TOKEN` – Docker Hub access token (Account → Security → New Access Token)
 
-**Published images:**
+**Published image:** `<DOCKERHUB_USERNAME>/olo-config`: `latest`, `<sha>`, and (on tag/release) `<version>`
 
-- `<DOCKERHUB_USERNAME>/olo-config-backend`: `latest`, `<sha>`, and (on tag/release) `<version>`
-- `<DOCKERHUB_USERNAME>/olo-config-frontend`: `latest`, `<sha>`, and (on tag/release) `<version>`
-
-Pull: `docker pull <your-username>/olo-config-backend:latest`. Use in your own compose or with Redis + Postgres.
+One image serves the config UI and API on port 8082. Pull: `docker pull <your-username>/olo-config:latest`. Run with Redis + Postgres (see docker-compose or use your own).
 
 ## API (overview)
 

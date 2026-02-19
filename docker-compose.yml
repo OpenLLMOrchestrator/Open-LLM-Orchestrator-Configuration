@@ -1,4 +1,4 @@
-# Open LLM Orchestrator - Configuration UI (frontend + backend + Redis + PostgreSQL)
+# Open LLM Orchestrator - Configuration UI (single app image: frontend + backend, Redis + PostgreSQL)
 # Copy .env.example to .env and set values. Then: docker compose up -d
 
 services:
@@ -29,11 +29,11 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  app:
     build:
       context: .
-      dockerfile: backend/Dockerfile
-    container_name: olo-backend
+      dockerfile: Dockerfile
+    container_name: olo-config-app
     ports:
       - "${SERVER_PORT:-8082}:8082"
     environment:
@@ -60,17 +60,6 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: olo-frontend
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
-    depends_on:
-      - backend
     restart: unless-stopped
 
 volumes:

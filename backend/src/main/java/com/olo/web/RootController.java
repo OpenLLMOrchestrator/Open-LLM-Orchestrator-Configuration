@@ -9,11 +9,11 @@ import java.util.Map;
 @RestController
 public class RootController {
 
-    @GetMapping(value = { "/", "/api" }, produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/api", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> root() {
         return Map.of(
             "message", "OLO Config API",
-            "docs", "Use the frontend at http://localhost:5173 or call:",
+            "docs", "When run in combined mode the UI is served at /. Otherwise use the frontend dev server or call:",
             "endpoints", Map.of(
                 "GET /api/configs", "List configs",
                 "GET /api/configs/{name}", "Get config",
