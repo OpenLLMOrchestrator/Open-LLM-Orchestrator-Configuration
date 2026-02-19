@@ -1,0 +1,57 @@
+{
+  "id" : "MODEL",
+  "name" : "MODEL",
+  "description" : "",
+  "icon" : "account_tree",
+  "type" : "capability",
+  "category" : "capability",
+  "properties" : {
+    "type" : "object",
+    "properties" : {
+      "executionMode" : {
+        "type" : "string",
+        "title" : "Execution mode",
+        "enum" : [ "SYNC", "ASYNC" ],
+        "default" : "SYNC"
+      },
+      "asyncCompletionPolicy" : {
+        "type" : "string",
+        "title" : "Completion mode (when Async)",
+        "enum" : [ "ALL", "FIRST_SUCCESS", "FIRST_FAILURE", "ALL_SETTLED" ],
+        "default" : "ALL"
+      },
+      "asyncOutputMergePolicy" : {
+        "type" : "string",
+        "title" : "Async merge policy",
+        "enum" : [ "LAST_WINS", "FIRST_WINS", "PREFIX_BY_ACTIVITY" ],
+        "default" : "LAST_WINS"
+      },
+      "label" : {
+        "type" : "string",
+        "title" : "Label",
+        "default" : "MODEL"
+      },
+      "plugins" : {
+        "type" : "array",
+        "title" : "Plugins",
+        "description" : "One or more plugins in this capability",
+        "minItems" : 1,
+        "items" : {
+          "type" : "string",
+          "title" : "Plugin ID"
+        }
+      },
+      "groups" : {
+        "type" : "array",
+        "title" : "Groups",
+        "description" : "One or more groups in this capability",
+        "minItems" : 1,
+        "items" : {
+          "type" : "object",
+          "title" : "Group"
+        }
+      }
+    },
+    "required" : [ "executionMode" ]
+  }
+}

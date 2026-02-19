@@ -33,17 +33,42 @@ function sectionTitle(sectionId: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-/** Group plugins by category (component name) for PLUGINS -> <Component Name> -> <Plugin Name> hierarchy. */
-function groupPluginsByCategory(components: ComponentSummary[]): Map<string, ComponentSummary[]> {
+/** Categories that mean "no type" / applicable for all capabilities. */
+const APPLICABLE_FOR_ALL_CATEGORIES = new Set(['', 'general', 'plugin', 'undefined']);
+
+/** Group plugins by category. Plugins with no type/category are added to every capability section (applicable for all). */
+function groupPluginsByCategory(
+  components: ComponentSummary[],
+  capabilityIds: string[]
+): Map<string, ComponentSummary[]> {
   const plugins = components.filter((c) => (c.type || '').toLowerCase() === 'plugin');
   const byCategory = new Map<string, ComponentSummary[]>();
+  const applicableForAll: ComponentSummary[] = [];
+
   for (const p of plugins) {
-    const componentName = (p.category || 'General').trim() || 'General';
+    const raw = (p.category ?? '').trim().toLowerCase();
+    if (!raw || APPLICABLE_FOR_ALL_CATEGORIES.has(raw)) {
+      applicableForAll.push(p);
+      continue;
+    }
+    const componentName = raw.charAt(0).toUpperCase() + raw.slice(1);
     if (!byCategory.has(componentName)) byCategory.set(componentName, []);
     byCategory.get(componentName)!.push(p);
   }
+
+  for (const capId of capabilityIds) {
+    const key = capId.charAt(0).toUpperCase() + capId.slice(1).toLowerCase();
+    if (!byCategory.has(key)) byCategory.set(key, []);
+    const list = byCategory.get(key)!;
+    for (const p of applicableForAll) {
+      if (!list.includes(p)) list.push(p);
+    }
+  }
+  if (applicableForAll.length > 0) {
+    byCategory.set('General', applicableForAll);
+  }
   for (const list of byCategory.values()) {
-    list.sort((a, b) => a.name.localeCompare(b.name));
+    list.sort((a, b) => (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name));
   }
   return byCategory;
 }
@@ -125,6 +150,7 @@ export function ComponentPalette({
 
   const capabilityFromApi = components.filter((c) => (c.category || '').toLowerCase() === 'capability');
   const apiCapabilityIds = new Set(capabilityFromApi.map((c) => c.id));
+  const capabilityIds = capabilityFromApi.map((c) => c.id);
 
   const addCapability = useCallback(async () => {
     const name = newCapabilityName.trim().toUpperCase().replace(/\s+/g, '_');
@@ -150,11 +176,15 @@ export function ComponentPalette({
   for (const list of bySection.values()) {
     list.sort((a, b) => a.name.localeCompare(b.name));
   }
-  const pluginByCategory = groupPluginsByCategory(components);
+  const pluginByCategory = groupPluginsByCategory(components, capabilityIds);
   const pluginCount = Array.from(pluginByCategory.values()).reduce((sum, list) => sum + list.length, 0);
   const sections = SECTION_ORDER.filter((s) => s === 'capability' || s === 'plugin' || bySection.has(s));
   const otherCategories = [...bySection.keys()].filter((k) => !SECTION_ORDER.includes(k)).sort();
   const allSectionIds = [...sections, ...otherCategories];
+
+  /** Flow and Control are open by default so components are visible; Capability and Plugins stay collapsed. */
+  const defaultOpenForSection = (sectionId: string) =>
+    sectionId === 'flow' || sectionId === 'control';
 
   const renderItem = (c: ComponentSummary) => (
     <div
@@ -177,7 +207,7 @@ export function ComponentPalette({
     >
       <span style={{ fontSize: '1.1rem' }}>{getIcon(c.icon)}</span>
       <span style={{ fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {c.name}
+        {c.displayName ?? c.name}
       </span>
     </div>
   );
@@ -289,8 +319,8 @@ export function ComponentPalette({
             key={sectionId}
             sectionId={sectionId}
             title={`${sectionTitle(sectionId)} (${list.length})`}
-            defaultOpen={false}
-            isOpen={openSections[sectionId] ?? false}
+            defaultOpen={defaultOpenForSection(sectionId)}
+            isOpen={openSections[sectionId] ?? undefined}
             onToggle={toggleSection}
           >
             {list.map(renderItem)}
@@ -299,6 +329,15 @@ export function ComponentPalette({
       })}
       {components.length === 0 && (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No components loaded.</div>
+      )}
+      {components.length > 0 && allSectionIds.every((id) => {
+        if (id === 'capability') return capabilityFromApi.length === 0;
+        if (id === 'plugin') return pluginCount === 0;
+        return (bySection.get(id) ?? []).length === 0;
+      }) && (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 8 }}>
+          No sections match. Check component type/category from API.
+        </div>
       )}
     </aside>
   );

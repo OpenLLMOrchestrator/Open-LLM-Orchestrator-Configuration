@@ -1,0 +1,12 @@
+# Profile: local. Use when running backend on host (mvn spring-boot:run) with Postgres on localhost.
+# Activate with: -Dspring.profiles.active=local
+# Override via env: SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_DATASOURCE_PASSWORD
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/temporal}
+    username: ${SPRING_DATASOURCE_USERNAME:temporal}
+    password: ${SPRING_DATASOURCE_PASSWORD:pgpass}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}

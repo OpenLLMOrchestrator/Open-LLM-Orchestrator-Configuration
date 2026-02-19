@@ -1,0 +1,8 @@
+[
+  { "id": "VERSIONED_STATE", "name": "Versioned state", "description": "Track state by version" },
+  { "id": "STAGE_RESULT_ENVELOPE", "name": "Stage result envelope", "description": "Wrap stage results in envelope" },
+  { "id": "EXECUTION_GRAPH", "name": "Execution graph", "description": "Build execution graph" },
+  { "id": "PLANNER_PLAN_EXECUTOR", "name": "Planner / Plan executor", "description": "Planner and plan executor features" },
+  { "id": "INTERCEPTORS", "name": "Interceptors", "description": "Request/response interceptors" },
+  { "id": "EXECUTION_SNAPSHOT", "name": "Execution snapshot", "description": "Snapshot execution state" }
+]

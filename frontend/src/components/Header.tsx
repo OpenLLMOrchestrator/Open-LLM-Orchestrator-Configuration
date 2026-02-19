@@ -87,6 +87,8 @@ interface HeaderProps {
   /** Save current config to olo:engine:config:{name} (name from New dialog). */
   onSaveAsNew: (name: string) => void;
   onSave: () => void;
+  /** Export current config as JSON file (browser will prompt for save location). */
+  onExport: () => void;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
 }
 
@@ -104,6 +106,7 @@ export function Header({
   onConfigSelect,
   onSaveAsNew,
   onSave,
+  onExport,
   saveStatus,
 }: HeaderProps) {
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
@@ -211,6 +214,14 @@ export function Header({
         title="Save current configuration at olo:engine:config:{name} (name from dialog)"
       >
         New
+      </button>
+      <button
+        type="button"
+        onClick={onExport}
+        className="form-actions secondary"
+        title="Export current configuration as a JSON file (choose where to save)"
+      >
+        Export
       </button>
       {saveStatus === 'error' && (
         <span style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>Save failed</span>

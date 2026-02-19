@@ -1,43 +1,49 @@
+# All values can be overridden via environment variables (e.g. SERVER_PORT, OLO_TEMPLATES_DIR).
+# See .env.example and docker-compose for full list.
+
 spring:
   application:
-    name: olo-config-backend
+    name: ${SPRING_APPLICATION_NAME:olo-config-backend}
   datasource:
-    url: jdbc:h2:file:./data/olo;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/temporal}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:temporal}
+    password: ${SPRING_DATASOURCE_PASSWORD:pgpass}
   h2:
     console:
-      enabled: true
+      enabled: ${SPRING_H2_CONSOLE_ENABLED:false}
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    database-platform: ${SPRING_JPA_DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
     defer-datasource-initialization: true
+    open-in-view: false
   sql:
     init:
+      # Run schema.sql (and data.sql) at bootstrap so tables exist before any code runs.
       mode: always
     properties:
       hibernate:
         format_sql: true
   data:
     redis:
-      host: localhost
-      port: 6379
-      timeout: 2000ms
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:2000ms}
 
 server:
-  port: 8082
+  port: ${SERVER_PORT:8082}
+  # Set SERVER_ADDRESS=0.0.0.0 in Docker so the app is reachable from the host
+  address: ${SERVER_ADDRESS:}
 
 olo:
   redis:
-    enabled: true
-    config-key-prefix: "olo:config:"
-    # Keys for "Load saved configuration" (e.g. olo:engine:config:default:1.0)
-    engine-config-key-prefix: "olo:engine:config:"
-  # Folder paths relative to working dir (e.g. backend/). Use env OLO_TEMPLATES_DIR etc. to override.
-  # Flow from components/flows/*.json, control from components/control/*.json, capabilities from components/capability/*.json, plugins from components/plugins/
-  templates-dir: ../template
-  components-dir: ../components
-  plugins-dir: ../components/plugins
-  plugin-schemas-path: classpath:plugin-schemas/
+    enabled: ${OLO_REDIS_ENABLED:true}
+    config-key-prefix: ${OLO_REDIS_CONFIG_KEY_PREFIX:olo:config:}
+    engine-config-key-prefix: ${OLO_REDIS_ENGINE_CONFIG_KEY_PREFIX:olo:engine:config:}
+  templates-dir: ${OLO_TEMPLATES_DIR:../template}
+  components-dir: ${OLO_COMPONENTS_DIR:../components}
+  plugins-dir: ${OLO_PLUGINS_DIR:../components/plugins}
+  plugin-schemas-path: ${OLO_PLUGIN_SCHEMAS_PATH:classpath:plugin-schemas/}

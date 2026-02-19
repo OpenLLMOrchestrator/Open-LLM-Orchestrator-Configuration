@@ -4,9 +4,10 @@ import { ComponentPalette } from './components/ComponentPalette';
 import { ConfigCanvas } from './components/ConfigCanvas';
 import { PropertyPanel } from './components/PropertyPanel';
 import { ResizablePanel } from './components/ResizablePanel';
-import type { OloConfig, Template, ComponentSummary, CanvasState, CanvasNode, CanvasEdge } from './types';
+import type { OloConfig, Template, ComponentSummary, CanvasState, CanvasNode, CanvasEdge, GlobalOptions } from './types';
+import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { api, isBackendReady } from './api';
-import { engineConfigToCanvasState, isEngineConfig, mergeCanvasPositions } from './utils/templateToCanvas';
+import { engineConfigToCanvasState, isEngineConfig, mergeCanvasPositions, minimalCanvasState, buildConfigWithPipelineRootFromCanvas } from './utils/templateToCanvas';
 
 const INPROGRESS_DEBOUNCE_MS = 1200;
 const BACKEND_POLL_MS = 1500;
@@ -56,6 +57,8 @@ export default function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pipelines' | 'global'>('pipelines');
+  const [globalOptions, setGlobalOptions] = useState<GlobalOptions | null>(null);
   const inprogressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRestoredInProgressRef = useRef(false);
 
@@ -83,6 +86,15 @@ export default function App() {
       setConfigs(list);
     } catch (e) {
       console.error('Failed to load config list', e);
+    }
+  }, []);
+
+  const loadGlobalOptions = useCallback(async () => {
+    try {
+      const opts = await api.getGlobalOptions();
+      setGlobalOptions(opts);
+    } catch (e) {
+      console.error('Failed to load global options', e);
     }
   }, []);
 
@@ -181,12 +193,17 @@ export default function App() {
           const computed = engineConfigToCanvasState(config, firstPipelineId ?? undefined);
           return mergeCanvasPositions(computed, prev);
         });
+      } else if (Object.keys(pipelines).length > 0) {
+        setCanvasState((prev) => {
+          const computed = engineConfigToCanvasState(config as Parameters<typeof engineConfigToCanvasState>[0], firstPipelineId ?? undefined);
+          return mergeCanvasPositions(computed, prev);
+        });
       } else {
-        setCanvasState({ nodes: [], edges: [] });
+        setCanvasState(minimalCanvasState());
       }
       setCanvasStateKey((k) => k + 1);
     } catch {
-      setCanvasState({ nodes: [], edges: [] });
+      setCanvasState(minimalCanvasState());
       setCanvasStateKey((k) => k + 1);
       setConfigJson({});
       setSelectedPipelineId(null);
@@ -208,14 +225,16 @@ export default function App() {
         const canvas = JSON.parse(c.canvasJson) as unknown;
         setCanvasState(normalizeCanvasState(canvas));
       } else if (firstPipelineId && isEngineConfig(config)) {
-        const { nodes, edges } = engineConfigToCanvasState(config, firstPipelineId);
-        setCanvasState({ nodes, edges });
+        const computed = engineConfigToCanvasState(config, firstPipelineId);
+        setCanvasState(computed);
+      } else if (Object.keys(pipelines).length > 0) {
+        setCanvasState(engineConfigToCanvasState(config as Parameters<typeof engineConfigToCanvasState>[0], firstPipelineId ?? undefined));
       } else {
-        setCanvasState({ nodes: [], edges: [] });
+        setCanvasState(minimalCanvasState());
       }
       setCanvasStateKey((k) => k + 1);
     } catch {
-      setCanvasState({ nodes: [], edges: [] });
+      setCanvasState(minimalCanvasState());
       setCanvasStateKey((k) => k + 1);
       setConfigJson({});
       setSelectedPipelineId(null);
@@ -247,7 +266,7 @@ export default function App() {
             mergeCanvasPositions(engineConfigToCanvasState(prev, trimmed), prevState)
           );
         } else {
-          setCanvasState({ nodes: [], edges: [] });
+          setCanvasState(minimalCanvasState());
         }
         setCanvasStateKey((k) => k + 1);
         return prev;
@@ -257,7 +276,7 @@ export default function App() {
       }
       pipelines[name] = { root: {}, defaultTimeoutSeconds: 6000, defaultAsyncCompletionPolicy: 'ALL' };
       setSelectedPipelineId(name);
-      setCanvasState({ nodes: [], edges: [] });
+      setCanvasState(minimalCanvasState());
       setCanvasStateKey((k) => k + 1);
       return { ...prev, pipelines };
     });
@@ -279,7 +298,7 @@ export default function App() {
           mergeCanvasPositions(engineConfigToCanvasState(nextConfig, nextId), prevState)
         );
       } else {
-        setCanvasState({ nodes: [], edges: [] });
+        setCanvasState(minimalCanvasState());
       }
       setCanvasStateKey((k) => k + 1);
       return { ...prev, pipelines };
@@ -291,7 +310,12 @@ export default function App() {
     if (!name) return;
     setSaveStatus('saving');
     try {
-      await api.upsertEngineConfig(name, JSON.stringify(configJson));
+      const pipelineId = selectedPipelineId ?? Object.keys((configJson?.pipelines as Record<string, unknown>) ?? {})[0] ?? '';
+      const fullConfig = pipelineId
+        ? buildConfigWithPipelineRootFromCanvas(configJson, canvasState, pipelineId, components)
+        : configJson;
+      await api.upsertEngineConfig(name, JSON.stringify(fullConfig));
+      if (pipelineId && fullConfig !== configJson) setConfigJson(fullConfig);
       setSaveStatus('saved');
       await loadConfigs();
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -299,14 +323,19 @@ export default function App() {
       console.error(e);
       setSaveStatus('error');
     }
-  }, [currentConfigName, configJson, loadConfigs]);
+  }, [currentConfigName, configJson, canvasState, selectedPipelineId, components, loadConfigs]);
 
   const saveAsNewConfig = useCallback(async (name: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     setSaveStatus('saving');
     try {
-      await api.upsertEngineConfig(trimmed, JSON.stringify(configJson));
+      const pipelineId = selectedPipelineId ?? Object.keys((configJson?.pipelines as Record<string, unknown>) ?? {})[0] ?? '';
+      const fullConfig = pipelineId
+        ? buildConfigWithPipelineRootFromCanvas(configJson, canvasState, pipelineId, components)
+        : configJson;
+      await api.upsertEngineConfig(trimmed, JSON.stringify(fullConfig));
+      if (pipelineId && fullConfig !== configJson) setConfigJson(fullConfig);
       setCurrentConfigName(trimmed);
       setSaveStatus('saved');
       await loadConfigs();
@@ -315,7 +344,39 @@ export default function App() {
       console.error(e);
       setSaveStatus('error');
     }
-  }, [configJson, loadConfigs]);
+  }, [configJson, canvasState, selectedPipelineId, components, loadConfigs]);
+
+  const setConfigJsonUpdater = useCallback((updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
+    setConfigJson(updater);
+  }, []);
+
+  const exportConfig = useCallback(() => {
+    const pipelineId = selectedPipelineId ?? Object.keys((configJson?.pipelines as Record<string, unknown>) ?? {})[0] ?? '';
+    console.log('[exportConfig] before build', {
+      pipelineId,
+      canvasNodesCount: canvasState.nodes.length,
+      canvasNodeIds: canvasState.nodes.map((n) => n.id),
+      canvasEdgesCount: canvasState.edges.length,
+    });
+    const fullConfig = pipelineId
+      ? buildConfigWithPipelineRootFromCanvas(configJson, canvasState, pipelineId, components)
+      : configJson;
+    const pipelineRoot = (fullConfig?.pipelines as Record<string, unknown>)?.[pipelineId] as Record<string, unknown> | undefined;
+    console.log('[exportConfig] after build', {
+      pipelineId,
+      rootKeys: pipelineRoot?.root ? Object.keys(pipelineRoot.root as object) : [],
+      root: pipelineRoot?.root,
+    });
+    const filename = `${currentConfigName?.trim() || 'engine-config'}.json`;
+    const json = JSON.stringify(fullConfig, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [configJson, canvasState, selectedPipelineId, currentConfigName, components]);
 
   const updatePipelineDefaults = useCallback(
     (pipelineId: string, defaults: { defaultTimeoutSeconds?: number; defaultAsyncCompletionPolicy?: string }) => {
@@ -353,6 +414,10 @@ export default function App() {
       document.body.style.cursor = '';
     };
   }, [loading]);
+
+  useEffect(() => {
+    if (activeTab === 'global' && globalOptions === null) loadGlobalOptions();
+  }, [activeTab, globalOptions, loadGlobalOptions]);
 
   if (loading) {
     return (
@@ -392,56 +457,107 @@ export default function App() {
         onConfigSelect={loadConfig}
         onSaveAsNew={saveAsNewConfig}
         onSave={saveConfig}
+        onExport={exportConfig}
         saveStatus={saveStatus}
       />
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <ResizablePanel
-          side="left"
-          width={leftPanelWidth}
-          onWidthChange={setLeftPanelWidth}
-          collapsed={leftPanelCollapsed}
-          onCollapsedChange={setLeftPanelCollapsed}
+      <div
+        style={{
+          display: 'flex',
+          gap: 0,
+          padding: '0 20px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-panel)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('pipelines')}
+          className="form-actions"
+          style={{
+            padding: '10px 16px',
+            borderRadius: 0,
+            borderBottom: activeTab === 'pipelines' ? '2px solid var(--primary)' : '2px solid transparent',
+            background: 'none',
+            fontWeight: activeTab === 'pipelines' ? 600 : 400,
+          }}
         >
-          <ComponentPalette
-            components={components}
-            onAddCapability={async (name) => {
-              const id = name.trim().toUpperCase().replace(/\s+/g, '_');
-              if (!id) return;
-              try {
-                await api.createCapability({ id, name: name.trim(), description: '' });
-                await loadComponents();
-              } catch (e) {
-                console.error('Failed to create capability', e);
-              }
-            }}
-          />
-        </ResizablePanel>
-        <ConfigCanvas
-          canvasState={canvasState}
-          canvasStateKey={canvasStateKey}
-          onCanvasChange={setCanvasState}
-          selectedNodeId={selectedNodeId}
-          onSelectNode={setSelectedNodeId}
-          components={components}
-        />
-        <ResizablePanel
-          side="right"
-          width={rightPanelWidth}
-          onWidthChange={setRightPanelWidth}
-          collapsed={rightPanelCollapsed}
-          onCollapsedChange={setRightPanelCollapsed}
+          Pipelines
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('global')}
+          className="form-actions"
+          style={{
+            padding: '10px 16px',
+            borderRadius: 0,
+            borderBottom: activeTab === 'global' ? '2px solid var(--primary)' : '2px solid transparent',
+            background: 'none',
+            fontWeight: activeTab === 'global' ? 600 : 400,
+          }}
         >
-          <PropertyPanel
-            selectedNodeId={selectedNodeId}
-            selectedPipelineId={selectedPipelineId}
-            configJson={configJson}
-            nodes={canvasState.nodes}
-            onUpdateNodeData={updateNodeData}
-            onUpdatePipelineDefaults={updatePipelineDefaults}
-            api={api}
-          />
-        </ResizablePanel>
+          Feature flags & settings
+        </button>
       </div>
+      {activeTab === 'pipelines' && (
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <ResizablePanel
+            side="left"
+            width={leftPanelWidth}
+            onWidthChange={setLeftPanelWidth}
+            collapsed={leftPanelCollapsed}
+            onCollapsedChange={setLeftPanelCollapsed}
+          >
+            <ComponentPalette
+              components={components}
+              onAddCapability={async (name) => {
+                const id = name.trim().toUpperCase().replace(/\s+/g, '_');
+                if (!id) return;
+                try {
+                  await api.createCapability({ id, name: name.trim(), description: '' });
+                  await loadComponents();
+                } catch (e) {
+                  console.error('Failed to create capability', e);
+                }
+              }}
+            />
+          </ResizablePanel>
+          <ConfigCanvas
+            canvasState={canvasState}
+            canvasStateKey={canvasStateKey}
+            onCanvasChange={setCanvasState}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={setSelectedNodeId}
+            components={components}
+            configJson={configJson}
+          />
+          <ResizablePanel
+            side="right"
+            width={rightPanelWidth}
+            onWidthChange={setRightPanelWidth}
+            collapsed={rightPanelCollapsed}
+            onCollapsedChange={setRightPanelCollapsed}
+          >
+            <PropertyPanel
+              selectedNodeId={selectedNodeId}
+              selectedPipelineId={selectedPipelineId}
+              configJson={configJson}
+              nodes={canvasState.nodes}
+              onUpdateNodeData={updateNodeData}
+              onUpdatePipelineDefaults={updatePipelineDefaults}
+              api={api}
+            />
+          </ResizablePanel>
+        </div>
+      )}
+      {activeTab === 'global' && (
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          <GlobalSettingsPanel
+            configJson={configJson}
+            onConfigChange={setConfigJsonUpdater}
+            globalOptions={globalOptions}
+          />
+        </div>
+      )}
     </div>
   );
 }

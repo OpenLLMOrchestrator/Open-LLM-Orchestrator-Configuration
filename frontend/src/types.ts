@@ -32,6 +32,8 @@ export interface PluginSummary {
   name: string;
   description?: string;
   icon?: string;
+  /** When set, use for display instead of name. */
+  displayName?: string;
 }
 
 /** UI component: Start, End, Group, or Plugin (from components/ and plugins/ folders). */
@@ -42,6 +44,22 @@ export interface ComponentSummary {
   icon?: string;
   type: string;
   category?: string;
+  /** When set, use for display instead of name. */
+  displayName?: string;
+  /** Plugin descriptor id from YAML (same as config id). */
+  pluginId?: string;
+  /** Plugin version from YAML. */
+  version?: string;
+  /** FQCN / className for engine (same as config name). */
+  className?: string;
+  /** Engine plugin type from YAML (e.g. ModelPlugin). */
+  pluginType?: string;
+}
+
+/** Options from components/global: feature flags and plugins for the Feature flags & settings tab. */
+export interface GlobalOptions {
+  featureFlags: { id: string; name: string; description?: string }[];
+  plugins: { id: string; name: string }[];
 }
 
 export interface PluginSchema {
@@ -51,6 +69,18 @@ export interface PluginSchema {
   icon?: string;
   type?: string;
   category?: string;
+  /** When set, use for display instead of name. */
+  displayName?: string;
+  /** Plugin descriptor id (same as config id). */
+  pluginId?: string;
+  /** Plugin version. */
+  version?: string;
+  /** FQCN / className (engine name). */
+  className?: string;
+  /** Engine plugin type (e.g. ModelPlugin). */
+  pluginType?: string;
+  /** Capability list from plugin YAML (e.g. [ "MODEL" ]). */
+  capability?: string[];
   properties?: {
     type: string;
     properties?: Record<string, unknown>;

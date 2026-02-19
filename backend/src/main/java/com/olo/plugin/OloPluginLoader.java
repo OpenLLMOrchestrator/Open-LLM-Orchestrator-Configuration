@@ -37,6 +37,20 @@ public class OloPluginLoader {
     private static final String[] METADATA_YAML_NAMES = { "plugin.yaml", "plugin.yml" };
     private static final int MAX_ZIP_ENTRY_BYTES = 5 * 1024 * 1024; // 5 MB per entry
 
+    private static final Map<String, String> CAPABILITY_TO_PLUGIN_TYPE = Map.ofEntries(
+            Map.entry("MODEL", "ModelPlugin"),
+            Map.entry("MEMORY", "MemoryPlugin"),
+            Map.entry("CACHING", "CachingPlugin"),
+            Map.entry("RETRIEVAL", "VectorStorePlugin"),
+            Map.entry("VECTOR_STORE", "VectorStorePlugin"),
+            Map.entry("TOOL", "ToolPlugin"),
+            Map.entry("MCP", "MCPPlugin"),
+            Map.entry("FILTER", "FilterPlugin"),
+            Map.entry("REFINEMENT", "RefinementPlugin"),
+            Map.entry("ACCESS", "AccessControlPlugin"),
+            Map.entry("ACCESS_CONTROL", "AccessControlPlugin")
+    );
+
     private final ObjectMapper objectMapper;
     private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
 
@@ -295,8 +309,24 @@ public class OloPluginLoader {
             if (plugin == null || !plugin.isObject()) continue;
             if (!plugin.has("id") && !plugin.has("name")) continue;
             ObjectNode uiNode = objectMapper.createObjectNode();
-            uiNode.put("id", plugin.has("id") ? plugin.get("id").asText() : ("plugin-" + i));
-            uiNode.put("name", plugin.has("name") ? plugin.get("name").asText() : uiNode.get("id").asText());
+            String yamlId = plugin.has("id") ? plugin.get("id").asText() : ("plugin-" + i);
+            uiNode.put("pluginId", yamlId);
+            uiNode.put("id", yamlId);
+            uiNode.put("name", plugin.has("name") ? plugin.get("name").asText() : yamlId);
+            if (plugin.has("displayName")) uiNode.put("displayName", plugin.get("displayName").asText());
+            if (plugin.has("version")) uiNode.put("version", plugin.get("version").asText());
+            if (plugin.has("className")) uiNode.put("className", plugin.get("className").asText());
+            if (plugin.has("pluginType") && plugin.get("pluginType").asText().trim().isEmpty())
+                uiNode.put("pluginType", "");
+            else
+                uiNode.put("pluginType", pluginTypeFromCapability(plugin));
+            if (plugin.has("capability") && plugin.get("capability").isArray()) {
+                ArrayNode capArray = objectMapper.createArrayNode();
+                for (JsonNode e : plugin.get("capability")) {
+                    if (e != null && e.isTextual()) capArray.add(e.asText());
+                }
+                uiNode.set("capability", capArray);
+            }
             uiNode.put("description", plugin.has("description") ? plugin.get("description").asText() : "");
             uiNode.put("type", "plugin");
             uiNode.put("category", plugin.has("category") ? plugin.get("category").asText() : "plugin");
@@ -359,8 +389,25 @@ public class OloPluginLoader {
                 if (id == null) id = "plugin-" + i;
                 if (name == null) name = id;
                 ObjectNode uiNode = objectMapper.createObjectNode();
+                uiNode.put("pluginId", id);
                 uiNode.put("id", id);
                 uiNode.put("name", name);
+                if (plugin.get("displayName") != null) uiNode.put("displayName", str(plugin.get("displayName")));
+                if (plugin.get("version") != null) uiNode.put("version", str(plugin.get("version")));
+                if (plugin.get("className") != null) uiNode.put("className", str(plugin.get("className")));
+                Object ptObj = plugin.get("pluginType");
+                if (ptObj != null && str(ptObj).trim().isEmpty())
+                    uiNode.put("pluginType", "");
+                else
+                    uiNode.put("pluginType", pluginTypeFromCapabilitySnake(plugin));
+                Object capObj = plugin.get("capability");
+                if (capObj instanceof List) {
+                    ArrayNode capArray = objectMapper.createArrayNode();
+                    for (Object o : (List<?>) capObj) {
+                        if (o != null) capArray.add(o.toString());
+                    }
+                    uiNode.set("capability", capArray);
+                }
                 uiNode.put("description", str(plugin.get("description")) != null ? str(plugin.get("description")) : "");
                 uiNode.put("type", "plugin");
                 uiNode.put("category", str(plugin.get("category")) != null ? str(plugin.get("category")) : "plugin");
@@ -410,6 +457,43 @@ public class OloPluginLoader {
         if (n.isBoolean()) return n.asBoolean();
         if (n.isTextual()) return Boolean.parseBoolean(n.asText().trim());
         return false;
+    }
+
+    /** Derive engine pluginType from plugin YAML (pluginType if present, else from capability). */
+    private static String pluginTypeFromCapability(JsonNode plugin) {
+        if (plugin.has("pluginType") && !plugin.get("pluginType").asText().isBlank()) {
+            return plugin.get("pluginType").asText().trim();
+        }
+        JsonNode cap = plugin.get("capability");
+        if (cap == null) return "ModelPlugin";
+        if (cap.isTextual()) {
+            String key = cap.asText().trim().toUpperCase();
+            return CAPABILITY_TO_PLUGIN_TYPE.getOrDefault(key, "ModelPlugin");
+        }
+        if (cap.isArray() && cap.size() > 0) {
+            JsonNode first = cap.get(0);
+            if (first != null && first.isTextual()) {
+                String key = first.asText().trim().toUpperCase();
+                return CAPABILITY_TO_PLUGIN_TYPE.getOrDefault(key, "ModelPlugin");
+            }
+        }
+        return "ModelPlugin";
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String pluginTypeFromCapabilitySnake(Map<String, Object> plugin) {
+        Object pt = plugin.get("pluginType");
+        if (pt != null && pt.toString().trim().length() > 0) return pt.toString().trim();
+        Object cap = plugin.get("capability");
+        if (cap == null) return "ModelPlugin";
+        String key;
+        if (cap instanceof List && !((List<?>) cap).isEmpty()) {
+            Object first = ((List<?>) cap).get(0);
+            key = first != null ? first.toString().trim().toUpperCase() : null;
+        } else {
+            key = cap.toString().trim().toUpperCase();
+        }
+        return key != null ? CAPABILITY_TO_PLUGIN_TYPE.getOrDefault(key, "ModelPlugin") : "ModelPlugin";
     }
 
     /** Compute a unique plugin id for this definition; prefer path/folder, then metadata id, then oloBaseId + index. */

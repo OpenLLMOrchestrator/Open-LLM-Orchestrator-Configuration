@@ -6,7 +6,7 @@ Configurable OLO with a **Java Spring Boot** backend and **React** frontend: dra
 
 - **Backend (Spring Boot)**
   - REST API for configs, templates, and components
-  - Config **upsert** to **H2 DB** and **Redis**
+  - Config **upsert** to **PostgreSQL** and **Redis**
   - **Templates** from the **`template/`** folder (engine-config-*.json pipeline configs; see [docs](docs/config-reference.md))
   - **Components** from **`components/`** (Start, End, Group) and **`plugins/`** (plugin definitions); each has a JSON config with `properties` schema for the UI
 
@@ -42,13 +42,24 @@ docker run -d -p 6379:6379 redis:7-alpine
 
 ### 2. Backend
 
+The backend uses the **engine-config** library so that templates and Redis-stored config are serialized/deserialized in the same format the worker (consumer) expects. Build engine-config once, then run the backend:
+
 ```bash
+# From project root: build engine-config then backend (or run both with one command)
+mvn -f engine-config/pom.xml install -q
 cd backend
 mvn spring-boot:run
 ```
 
+Or from project root: `mvn install` builds `engine-config` then `backend`.
+
 - API: **http://localhost:8082**
-- H2 console (optional): `http://localhost:8082/h2-console` (JDBC URL: `jdbc:h2:file:./data/olo`)
+- **Local run with PostgreSQL:** If Postgres is in Docker (e.g. container `olo-postgres` with user `temporal`, password `pgpass`, DB `temporal`), run the backend with the `local` profile so it uses `localhost:5432` and those credentials:
+  ```bash
+  cd backend
+  mvn spring-boot:run -Dspring.profiles.active=local
+  ```
+  Or set env vars: `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/temporal`, `SPRING_DATASOURCE_USERNAME=temporal`, `SPRING_DATASOURCE_PASSWORD=pgpass`
 
 ### 3. Frontend (dev)
 
@@ -62,15 +73,28 @@ npm run dev
 
 ### 4. All-in-one with Docker Compose
 
-```bash
-# Build backend JAR first
-cd backend && mvn -DskipTests package && cd ..
+All settings are configurable via environment variables. Copy `.env.example` to `.env` and adjust if needed.
 
-docker-compose up -d
+```bash
+cp .env.example .env
+docker compose up -d --build
 ```
 
-- Frontend: **http://localhost:5173**
-- Backend: **http://localhost:8082**
+- Frontend: **http://localhost:5173** (or `FRONTEND_PORT`)
+- Backend: **http://localhost:8082** (or `SERVER_PORT`)
+- Redis: port `6379` (or `REDIS_PORT`)
+- PostgreSQL: port `5432` (or `POSTGRES_PORT`); set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` in `.env`
+
+The Compose stack includes Redis and PostgreSQL. The backend is built from source (engine-config + backend). Templates and components are mounted from `./template` and `./components`; override paths with `OLO_TEMPLATES_DIR`, `OLO_COMPONENTS_DIR`, `OLO_PLUGINS_DIR` in `.env`.
+
+### Published containers (GitHub Actions)
+
+On **push to `main`**, **push of tag `v*`**, or **release published**, the [publish-containers](.github/workflows/publish-containers.yml) workflow builds and pushes images to **GitHub Container Registry** (ghcr.io):
+
+- `ghcr.io/<owner>/<repo>-backend:latest`, `:<sha>`, and (on tag/release) `:<version>`
+- `ghcr.io/<owner>/<repo>-frontend:latest`, `:<sha>`, and (on tag/release) `:<version>`
+
+Pull and run with Redis + Postgres, or use your own compose and set the backend/frontend images to these.
 
 ## API (overview)
 
@@ -121,14 +145,14 @@ Pipeline configuration templates are loaded from the **`template/`** folder (e.g
 
 ## Configuration
 
-- **Backend** `application.yml`:
-  - `spring.datasource.*` – H2 DB
-  - `spring.data.redis.*` – Redis
-  - `olo.redis.config-key-prefix` – Redis key prefix for configs
-  - `olo.templates-dir`, `olo.components-dir`, `olo.plugins-dir` – Paths to template/, components/, plugins/ (relative to backend working dir)
-  - `olo.plugin-schemas-path` – Classpath fallback for plugin schemas
+All backend settings can be overridden via **environment variables** (see `.env.example`). Used by Docker Compose and local runs.
 
-- **Frontend**: API base is proxied at `/api` (see `vite.config.ts` and `frontend/nginx.conf` in Docker).
+- **Server**: `SERVER_PORT` (default 8082), `FRONTEND_PORT` (default 5173 for Compose map)
+- **Redis**: `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT`, `SPRING_DATA_REDIS_PASSWORD`, `OLO_REDIS_CONFIG_KEY_PREFIX`, `OLO_REDIS_ENGINE_CONFIG_KEY_PREFIX`
+- **Paths**: `OLO_TEMPLATES_DIR`, `OLO_COMPONENTS_DIR`, `OLO_PLUGINS_DIR`, `OLO_PLUGIN_SCHEMAS_PATH` (in container use `/app/template` etc.; Compose mounts `./template`, `./components`)
+- **Database (PostgreSQL)**: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` (default `jdbc:postgresql://localhost:5432/olo`). In Docker, set `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (compose builds the URL for the backend).
+
+**Backend** `application.yml` holds defaults; env vars take precedence. **Frontend**: API base is proxied at `/api` (see `vite.config.ts` and `frontend/nginx.conf` in Docker).
 
 ## License
 

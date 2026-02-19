@@ -1,0 +1,13 @@
+{
+  "id": "DocumentTokenizerPlugin",
+  "name": "Document Tokenizer",
+  "description": "Tokenize documents for ingestion or filtering",
+  "icon": "description",
+  "type": "plugin",
+  "category": "filter",
+  "properties": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}

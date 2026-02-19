@@ -1,0 +1,17 @@
+# Used when building backend (context = repo root)
+.git
+.gitignore
+*.md
+.env
+.env.*
+!/.env.example
+node_modules
+frontend
+frontend/*
+template/*.md
+**/target
+**/dist
+**/.cursor
+**/.idea
+**/*.iml
+**/node_modules

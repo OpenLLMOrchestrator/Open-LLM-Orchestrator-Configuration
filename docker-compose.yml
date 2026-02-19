@@ -1,29 +1,78 @@
-version: '3.8'
+# Open LLM Orchestrator - Configuration UI (frontend + backend + Redis + PostgreSQL)
+# Copy .env.example to .env and set values. Then: docker compose up -d
+
 services:
   redis:
     image: redis:7-alpine
+    container_name: olo-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: olo-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-temporal}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pgpass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: olo-backend
     ports:
-      - "8082:8082"
+      - "${SERVER_PORT:-8082}:8082"
     environment:
-      SPRING_DATA_REDIS_HOST: redis
+      SERVER_ADDRESS: 0.0.0.0
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-temporal}
+      SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-temporal}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pgpass}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:-}
+      OLO_TEMPLATES_DIR: ${OLO_TEMPLATES_DIR:-/app/template}
+      OLO_COMPONENTS_DIR: ${OLO_COMPONENTS_DIR:-/app/components}
+      OLO_PLUGINS_DIR: ${OLO_PLUGINS_DIR:-/app/components/plugins}
+      OLO_REDIS_CONFIG_KEY_PREFIX: ${OLO_REDIS_CONFIG_KEY_PREFIX:-olo:config:}
+      OLO_REDIS_ENGINE_CONFIG_KEY_PREFIX: ${OLO_REDIS_ENGINE_CONFIG_KEY_PREFIX:-olo:engine:config:}
+      OLO_REDIS_ENABLED: ${OLO_REDIS_ENABLED:-true}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+    volumes:
+      - ./template:/app/template:ro
+      - ./components:/app/components:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: olo-frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   redis_data:
+  postgres_data:

@@ -1,4 +1,4 @@
-import type { OloConfig, Template, PluginSummary, PluginSchema, ComponentSummary, InProgressTemplate } from './types';
+import type { OloConfig, Template, PluginSummary, PluginSchema, ComponentSummary, InProgressTemplate, GlobalOptions } from './types';
 
 const BASE = '/api';
 
@@ -48,6 +48,7 @@ export const api = {
   getPlugins: () => get<PluginSummary[]>(`/plugins`),
   getPluginSchema: (pluginId: string) => get<PluginSchema>(`/plugins/${pluginId}/schema`),
   getComponents: () => get<ComponentSummary[]>(`/components`),
+  getGlobalOptions: () => get<GlobalOptions>(`/components/global`),
   getComponentSchema: (componentId: string) => get<PluginSchema>(`/components/${encodeURIComponent(componentId)}/schema`),
   createCapability: (body: { id: string; name?: string; description?: string }) =>
     post<ComponentSummary>(`/components/capability`, body),

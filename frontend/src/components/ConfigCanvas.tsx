@@ -21,6 +21,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { CanvasState, CanvasNode, CanvasEdge, ComponentSummary } from '../types';
+import { isEngineConfig } from '../utils/templateToCanvas';
 import { CanvasContextMenu, type ContextMenuState } from './CanvasContextMenu';
 
 const ICONS: Record<string, string> = {
@@ -39,10 +40,30 @@ const ICONS: Record<string, string> = {
   extension: '🧩',
 };
 
-function PluginNode({ data }: { data: { label?: string; icon?: string; _swimLane?: boolean } }) {
+const VALIDATION_ERROR_TOOLTIP = 'Not configured: add plugin settings in the property panel (right) or it may not run correctly.';
+
+function PluginNode({ data }: { data: { label?: string; icon?: string; _swimLane?: boolean; _validationError?: boolean; _validationErrorMessage?: string } }) {
   const isLane = data._swimLane === true;
+  const hasError = data._validationError === true;
+  const errorTooltip = (data._validationErrorMessage as string) || VALIDATION_ERROR_TOOLTIP;
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {hasError && (
+        <span
+          title={errorTooltip}
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: 'var(--danger, #ef4444)',
+            border: '1px solid var(--bg-panel)',
+            zIndex: 1,
+          }}
+        />
+      )}
       <Handle type="target" position={Position.Left} />
       <div
         style={{
@@ -81,7 +102,7 @@ function isForkDisplay(pluginId: string, data: Record<string, unknown>): boolean
 function toFlowNode(n: CanvasNode, components: ComponentSummary[]): Node {
   const comp = components.find((c) => c.id === n.pluginId);
   const data = {
-    label: (n.data?.label as string) ?? comp?.name ?? n.pluginId,
+    label: (comp ? (comp.displayName ?? comp.name) : undefined) ?? (n.data?.label as string) ?? n.pluginId,
     icon: comp?.icon ?? 'extension',
     pluginId: n.pluginId,
     ...n.data,
@@ -177,6 +198,12 @@ function canConnect(
   return canGroupAddChild(nodes, currentChildIds, targetId);
 }
 
+const SYSTEM_NODE_PLUGIN_IDS = new Set(['start', 'end', 'group', 'fork', 'condition', 'reducer']);
+
+function isPluginNodeNeedingConfig(pluginId: string): boolean {
+  return !SYSTEM_NODE_PLUGIN_IDS.has(pluginId);
+}
+
 interface ConfigCanvasProps {
   canvasState: CanvasState;
   canvasStateKey: number;
@@ -184,6 +211,8 @@ interface ConfigCanvasProps {
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
   components: ComponentSummary[];
+  /** Used to show red validation bubble on nodes that have no config. */
+  configJson?: Record<string, unknown>;
 }
 
 export function ConfigCanvas({
@@ -193,6 +222,7 @@ export function ConfigCanvas({
   selectedNodeId,
   onSelectNode,
   components,
+  configJson = {},
 }: ConfigCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(
     canvasState.nodes.map((n) => toFlowNode(n, components))
@@ -209,12 +239,31 @@ export function ConfigCanvas({
     skipNextSyncRef.current = true;
     setNodes(canvasState.nodes.map((n) => toFlowNode(n, components)));
     setEdges(canvasState.edges.map(toFlowEdge));
-  }, [canvasStateKey]);
+  }, [canvasStateKey, components]);
 
-  const nodesWithSelection = nodes.map((n) => ({
-    ...n,
-    selected: n.id === selectedNodeId,
-  }));
+  const nodesWithSelection = nodes.map((n) => {
+    const data = { ...(n.data as Record<string, unknown>) };
+    const pluginId = (data.pluginId as string) ?? '';
+    if (pluginId && !SYSTEM_NODE_PLUGIN_IDS.has(pluginId)) {
+      const comp = components.find((c) => c.id === pluginId);
+      if (comp) data.label = comp.displayName ?? comp.name;
+    }
+    if (isPluginNodeNeedingConfig(pluginId)) {
+      const nodeConfig = configJson[n.id];
+      const configStoredFlat = !isEngineConfig(configJson);
+      const hasValidationError =
+        configStoredFlat && (nodeConfig == null || (typeof nodeConfig === 'object' && Object.keys(nodeConfig as object).length === 0));
+      data._validationError = hasValidationError;
+      data._validationErrorMessage = hasValidationError
+        ? 'Not configured: add plugin settings in the property panel (right) or it may not run correctly.'
+        : undefined;
+    }
+    return {
+      ...n,
+      data,
+      selected: n.id === selectedNodeId,
+    };
+  });
 
   const syncToParent = useCallback(
     (newNodes: Node[], newEdges: Edge[]) => {
@@ -240,7 +289,7 @@ export function ConfigCanvas({
 
   const onConnect = useCallback(
     (conn: Connection) => {
-      if (!conn.source || !conn.target) return;
+      if (!conn?.source || !conn?.target) return;
       if (!canConnect(nodes, edges, conn.source, conn.target)) {
         const targetNode = nodes.find((n) => n.id === conn.target);
         const pid = getPluginId(targetNode);
@@ -260,8 +309,8 @@ export function ConfigCanvas({
 
   const onReconnect = useCallback(
     (_: React.MouseEvent | React.TouchEvent, edge: Edge, connection: Connection) => {
-      if (!connection.source || !connection.target) return;
-      if (!canConnect(nodes, edges, connection.source, connection.target, edge.id)) {
+      if (!connection?.source || !connection?.target) return;
+      if (!canConnect(nodes, edges, connection.source, connection.target, edge?.id)) {
         const targetNode = nodes.find((n) => n.id === connection.target);
         const pid = getPluginId(targetNode);
         const kind =
@@ -303,7 +352,7 @@ export function ConfigCanvas({
           type: 'plugin',
           position,
           data: {
-            label: comp?.name ?? capName,
+            label: (comp?.displayName ?? comp?.name) ?? capName,
             icon: 'account_tree',
             pluginId: 'group',
             _capability: capName,
@@ -317,7 +366,7 @@ export function ConfigCanvas({
           type: 'plugin',
           position,
           data: {
-            label: comp?.name ?? componentId,
+            label: (comp?.displayName ?? comp?.name) ?? componentId,
             icon: comp?.icon ?? 'extension',
             pluginId: componentId,
           },

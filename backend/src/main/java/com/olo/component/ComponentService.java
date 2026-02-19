@@ -3,6 +3,7 @@ package com.olo.component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.openllmorchestrator.worker.engine.config.EngineFileConfig;
 import com.olo.plugin.OloPluginLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class ComponentService {
     private static final String CONTROL_SUBDIR = "control";
     private static final String CAPABILITY_SUBDIR = "capability";
     private static final String PLUGINS_SUBDIR = "plugins";
+    private static final String GLOBAL_SUBDIR = "global";
 
     private final ObjectMapper objectMapper;
     private final OloPluginLoader oloPluginLoader;
@@ -47,6 +49,7 @@ public class ComponentService {
 
     private final Map<String, JsonNode> componentSchemasById = new HashMap<>();
     private volatile Path resolvedCapabilityDir;
+    private volatile GlobalOptions globalOptions;
 
     @PostConstruct
     public void loadComponents() {
@@ -97,7 +100,79 @@ public class ComponentService {
         loadFromOloZip(pluginsPath);
         loadFromPluginYamlFiles(pluginsPath);
         loadFromClasspath();
+        loadGlobalOptions(componentsPath);
         log.info("Loaded {} components/capabilities/plugins total", componentSchemasById.size());
+    }
+
+    /** Load feature flags, plugins list, and other options from components/global/*.json. */
+    private void loadGlobalOptions(Path componentsPath) {
+        Path globalDir = componentsPath.resolve(GLOBAL_SUBDIR).normalize();
+        List<GlobalOptions.FeatureFlagOption> featureFlags = new ArrayList<>();
+        List<GlobalOptions.PluginOption> plugins = new ArrayList<>();
+        if (Files.isDirectory(globalDir)) {
+            Path ffPath = globalDir.resolve("feature-flags.json");
+            if (Files.isRegularFile(ffPath)) {
+                try {
+                    JsonNode arr = objectMapper.readTree(Files.readString(ffPath));
+                    if (arr.isArray()) {
+                        for (JsonNode n : arr) {
+                            String id = n.has("id") ? n.get("id").asText() : (n.isTextual() ? n.asText() : null);
+                            if (id != null && !id.isBlank()) {
+                                featureFlags.add(GlobalOptions.FeatureFlagOption.builder()
+                                        .id(id)
+                                        .name(n.has("name") ? n.get("name").asText() : id)
+                                        .description(n.has("description") ? n.get("description").asText() : null)
+                                        .build());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not load feature-flags.json from global: {}", e.getMessage());
+                }
+            }
+            Path pluginsPath = globalDir.resolve("plugins.json");
+            if (Files.isRegularFile(pluginsPath)) {
+                try {
+                    JsonNode arr = objectMapper.readTree(Files.readString(pluginsPath));
+                    if (arr.isArray()) {
+                        for (JsonNode n : arr) {
+                            String id = n.has("id") ? n.get("id").asText() : (n.isTextual() ? n.asText() : null);
+                            if (id != null && !id.isBlank()) {
+                                plugins.add(GlobalOptions.PluginOption.builder()
+                                        .id(id)
+                                        .name(n.has("name") ? n.get("name").asText() : id)
+                                        .build());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not load plugins.json from global: {}", e.getMessage());
+                }
+            }
+        }
+        if (featureFlags.isEmpty()) {
+            featureFlags = EngineFileConfig.DEFAULT_ENABLED_FEATURES.stream()
+                    .map(id -> GlobalOptions.FeatureFlagOption.builder().id(id).name(id).build())
+                    .toList();
+        }
+        if (plugins.isEmpty()) {
+            for (Map.Entry<String, JsonNode> e : componentSchemasById.entrySet()) {
+                JsonNode n = e.getValue();
+                String type = n.has("type") ? n.get("type").asText() : "plugin";
+                if ("plugin".equals(type)) {
+                    plugins.add(GlobalOptions.PluginOption.builder()
+                            .id(e.getKey())
+                            .name(n.has("name") ? n.get("name").asText() : e.getKey())
+                            .build());
+                }
+            }
+            plugins.sort(Comparator.comparing(GlobalOptions.PluginOption::getName));
+        }
+        globalOptions = GlobalOptions.builder()
+                .featureFlags(featureFlags)
+                .plugins(plugins)
+                .build();
+        log.info("Global options: {} feature flags, {} plugins", featureFlags.size(), plugins.size());
     }
 
     /** Load capability definitions from components/capability/*.json (template-driven). */
@@ -197,18 +272,73 @@ public class ComponentService {
             list.add(ComponentSummary.builder()
                     .id(e.getKey())
                     .name(n.has("name") ? n.get("name").asText() : e.getKey())
+                    .displayName(n.has("displayName") ? n.get("displayName").asText() : null)
                     .description(n.has("description") ? n.get("description").asText() : null)
                     .icon(n.has("icon") ? n.get("icon").asText() : "extension")
                     .type(type)
                     .category(n.has("category") ? n.get("category").asText() : null)
+                    .pluginId(n.has("pluginId") ? n.get("pluginId").asText() : null)
+                    .version(n.has("version") ? n.get("version").asText() : null)
+                    .className(n.has("className") ? n.get("className").asText() : null)
+                    .pluginType(n.has("pluginType") ? n.get("pluginType").asText() : null)
                     .build());
         }
         list.sort(Comparator.comparing(ComponentSummary::getType).thenComparing(ComponentSummary::getName));
         return list;
     }
 
+    /**
+     * Get schema by component/plugin id. If not found and id looks like a FQCN (contains "."),
+     * try again using the class name (last segment) so e.g. com.openllmorchestrator.worker.plugin.tokenizer.DocumentTokenizerPlugin
+     * resolves to a schema registered as DocumentTokenizerPlugin.
+     */
     public Optional<JsonNode> getSchema(String componentId) {
-        return Optional.ofNullable(componentSchemasById.get(componentId));
+        JsonNode schema = componentSchemasById.get(componentId);
+        if (schema != null) return Optional.of(schema);
+        int lastDot = componentId != null ? componentId.lastIndexOf('.') : -1;
+        if (lastDot > 0 && lastDot < componentId.length() - 1) {
+            String className = componentId.substring(lastDot + 1);
+            schema = componentSchemasById.get(className);
+        }
+        return Optional.ofNullable(schema);
+    }
+
+    /** Global options for UI: feature flags and plugins from components/global (or defaults). */
+    public GlobalOptions getGlobalOptions() {
+        return globalOptions != null ? globalOptions : GlobalOptions.builder()
+                .featureFlags(EngineFileConfig.DEFAULT_ENABLED_FEATURES.stream()
+                        .map(id -> GlobalOptions.FeatureFlagOption.builder().id(id).name(id).build())
+                        .toList())
+                .plugins(List.of())
+                .build();
+    }
+
+    @lombok.Data
+    @lombok.Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class GlobalOptions {
+        private List<FeatureFlagOption> featureFlags;
+        private List<PluginOption> plugins;
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class FeatureFlagOption {
+            private String id;
+            private String name;
+            private String description;
+        }
+
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class PluginOption {
+            private String id;
+            private String name;
+        }
     }
 
     /**
@@ -311,9 +441,19 @@ public class ComponentService {
     public static class ComponentSummary {
         private String id;
         private String name;
+        /** Optional display name for UI; when set, use instead of name for labels. */
+        private String displayName;
         private String description;
         private String icon;
         private String type;
         private String category;
+        /** Plugin descriptor id from YAML (same as config id). */
+        private String pluginId;
+        /** Plugin version from YAML. */
+        private String version;
+        /** FQCN / className for engine (same as config name). */
+        private String className;
+        /** Engine plugin type from YAML/capability (e.g. ModelPlugin). */
+        private String pluginType;
     }
 }

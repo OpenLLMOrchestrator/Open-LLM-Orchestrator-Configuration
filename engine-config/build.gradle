@@ -1,0 +1,49 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'com.openllm'
+version = rootProject.findProperty('version') ?: '0.0.1'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+    implementation 'redis.clients:jedis:5.1.0'
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            artifactId = 'engine-config'
+            groupId = project.group
+            version = project.version
+        }
+    }
+    repositories {
+        def repoUrl = System.getenv('MAVEN_REPO_URL')
+        if (repoUrl != null && !repoUrl.isBlank()) {
+            maven {
+                url = uri(repoUrl)
+                credentials {
+                    username = System.getenv('GITHUB_ACTOR') ?: ''
+                    password = System.getenv('GITHUB_TOKEN') ?: ''
+                }
+            }
+        } else {
+            mavenLocal()
+        }
+    }
+}

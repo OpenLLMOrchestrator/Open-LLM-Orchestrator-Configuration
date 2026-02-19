@@ -25,6 +25,15 @@ public class ComponentController {
         return componentService.listAll();
     }
 
+    /**
+     * Global options from components/global: feature flags and plugins lists.
+     * Used by the Feature flags & settings tab.
+     */
+    @GetMapping("/global")
+    public ComponentService.GlobalOptions getGlobal() {
+        return componentService.getGlobalOptions();
+    }
+
     @GetMapping("/{componentId}/schema")
     public ResponseEntity<JsonNode> getSchema(@PathVariable String componentId) {
         return componentService.getSchema(componentId)

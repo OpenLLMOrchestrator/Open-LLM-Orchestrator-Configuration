@@ -55,7 +55,7 @@ export function PluginPalette({ plugins }: PluginPaletteProps) {
           >
             <span style={{ fontSize: '1.2rem' }}>{getIcon(p.icon)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 500 }}>{p.name}</div>
+              <div style={{ fontWeight: 500 }}>{p.displayName ?? p.name}</div>
               {p.description && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
                   {p.description}

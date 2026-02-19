@@ -46,7 +46,7 @@ public class OloConfigController {
 
     /** Save current config to olo:engine:config:{name}. Used by "New" (name from dialog) and "Update". Path avoids conflict with GET /{name}. */
     @PostMapping("/engine/save")
-    public ResponseEntity<EngineConfigUpsertRequest> upsertEngineConfig(@RequestBody EngineConfigUpsertRequest request) {
+    public ResponseEntity<?> upsertEngineConfig(@RequestBody EngineConfigUpsertRequest request) {
         if (request == null || request.getName() == null || request.getName().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
@@ -54,8 +54,9 @@ public class OloConfigController {
             redisConfigService.upsertEngineConfig(request.getName().trim(), request.getConfigJson());
             return ResponseEntity.ok(request);
         } catch (Exception e) {
-            log.error("Failed to upsert engine config: {}", request.getName(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.warn("Redis unavailable when upserting engine config {}: {}", request.getName(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(java.util.Map.of("error", "Redis unavailable", "message", e.getMessage() != null ? e.getMessage() : "Connection refused"));
         }
     }
 
@@ -69,9 +70,15 @@ public class OloConfigController {
 
     /** Persist current in-progress template to Redis. */
     @PutMapping("/inprogress")
-    public ResponseEntity<RedisConfigService.InProgressPayload> putInProgress(
+    public ResponseEntity<?> putInProgress(
             @RequestBody RedisConfigService.InProgressPayload payload) {
-        redisConfigService.setInProgress(payload);
-        return ResponseEntity.ok(payload);
+        try {
+            redisConfigService.setInProgress(payload);
+            return ResponseEntity.ok(payload);
+        } catch (Exception e) {
+            log.warn("Redis unavailable when saving in-progress template: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(java.util.Map.of("error", "Redis unavailable", "message", e.getMessage()));
+        }
     }
 }
